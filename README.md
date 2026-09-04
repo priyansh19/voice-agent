@@ -1,13 +1,15 @@
-# Voice Agent — a sub-second, fully local voice assistant in your own voice, on open-weight models only
+# Voice Agent — a fully local voice assistant that starts responding in under 200 milliseconds, in your own voice, on open-weight models only
 
 [![CI](https://github.com/priyansh19/voice-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/priyansh19/voice-agent/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](pyproject.toml)
 
 A real-time spoken assistant that listens, thinks, looks things up on the internet, and answers **in a clone of
-your voice**, running entirely on one laptop with no cloud inference and no proprietary models. It was built and
-measured on an Intel Core Ultra 7 155H (CPU + Arc iGPU + NPU, no NVIDIA GPU), splitting the models across the
-three compute units so that no stage waits for another stage's hardware.
+your voice**, running entirely on one laptop with no cloud inference and no proprietary models. It reacts in
+**~170 milliseconds** (a spoken acknowledgement in your cloned voice) and speaks the first words of its answer
+about a second after you stop talking; the transcript is already finished *before* you finish pausing. It was
+built and measured on an Intel Core Ultra 7 155H (CPU + Arc iGPU + NPU, no NVIDIA GPU), splitting the models
+across the three compute units so that no stage waits for another stage's hardware.
 
 ![Architecture: hardware lanes, data flow and the measured one-turn timeline](docs/architecture.svg)
 
@@ -21,7 +23,30 @@ three compute units so that no stage waits for another stage's hardware.
 | **first words of the answer audible** | **950–1200** |
 
 Hindi / Hinglish turns take 4–6 s (multilingual STT plus Devanagari being token-expensive for the LLM).
-The honest framing: sub-200 ms to a spoken reaction, about one second to the answer, everything local.
+The honest framing: under 200 ms to a spoken reaction, about one second to the answer, everything local.
+
+---
+
+## Hardware requirements
+
+This is a compute-heavy local stack; the numbers above depend on the hardware split. What you need:
+
+| | minimum (it runs) | measured configuration (the numbers above) |
+|---|---|---|
+| CPU | x86-64 with AVX2, 8 threads | Intel Core Ultra 7 155H (6P + 8E + 2LP cores) |
+| Accelerators | none (CPU fallbacks for every stage) | Intel Arc iGPU (LLM via Vulkan, Whisper + TTS flow via OpenVINO) **and** Intel AI Boost NPU (English STT) |
+| RAM | 16 GB (≈7 GB resident for the models) | 32 GB |
+| Disk | 25 GB free (weights ≈16 GB + compiled caches + two Python environments) | 250 GB SSD |
+| OS | Windows 11 (tested) or Linux (should work, untested); Python 3.12 via uv | Windows 11 |
+| Audio | any microphone and speaker, or a browser in hosted mode | laptop mic array / headset |
+| Software | [Ollama](https://ollama.com) ≥ 0.33 with `granite4.2:3b` pulled | Ollama 0.33.3 |
+| Network | only for first-run model downloads and the keyless tools (weather, Wikipedia, search) | |
+
+What changes without the accelerators: on CPU alone the English STT takes 0.5–0.8 s instead of 0.13 s, Whisper
+~5 s, the LLM ~5 tok/s, and a cloned-voice sentence 3–4 s, so expect 3–6 s to the answer instead of ~1 s.
+An Intel Core Ultra (Meteor Lake or newer) gets the measured behaviour out of the box. NVIDIA GPUs and Apple
+Silicon run the LLM through Ollama today, but the STT/TTS accelerator backends are OpenVINO-specific, so those
+stages fall back to CPU until a CUDA/Metal backend is contributed (see CONTRIBUTING → *Adding a backend*).
 
 ---
 
