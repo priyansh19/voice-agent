@@ -1,0 +1,37 @@
+name: Real-hardware latency benchmark
+
+# GitHub-hosted runners have no GPU/NPU/Ollama. Register a self-hosted runner on the machine that runs the agent
+# (labels: self-hosted, voice-agent) and trigger this manually; it runs the real models end to end on a
+# recorded utterance and uploads the per-turn latency table + reply audio.
+on:
+  workflow_dispatch:
+    inputs:
+      turns:
+        description: "How many replays of the test utterance"
+        default: "3"
+
+jobs:
+  e2e-latency:
+    runs-on: [self-hosted, voice-agent]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - run: uv sync --group dev
+      - name: Warm everything (compiled caches are kept between runs on the self-hosted machine)
+        run: uv run python main.py --prepare
+      - name: End-to-end replays
+        shell: bash
+        env:
+          PYTHONIOENCODING: utf-8
+        run: |
+          mkdir -p out
+          args=""
+          for i in $(seq 1 ${{ github.event.inputs.turns }}); do args="$args samples/test_utterance_16k.wav"; done
+          uv run python main.py --wav $args --no-audio-out 2>&1 | tee out/benchmark.log
+          grep -E "FIRST ANSWER AUDIO OUT|filler audio out|LLM first token|STT done" out/benchmark.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: latency-${{ github.run_number }}
+          path: |
+            out/benchmark.log
+            out/reply_*.wav

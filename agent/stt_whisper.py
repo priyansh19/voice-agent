@@ -1,7 +1,7 @@
 """Multilingual STT: Whisper large-v3-turbo (int4) through OpenVINO GenAI. ~0.85-1.1 s per utterance on the Arc iGPU,
 auto language detection (99 languages incl. Hindi). Runs *alongside* the 130 ms English CTC model; the pipeline
 switches to this transcript when the two disagree (non-English or English the CTC model missed)."""
-import glob, os, re, threading, time
+import os, re, threading, time
 
 
 class WhisperSTT:

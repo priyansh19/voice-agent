@@ -9,7 +9,7 @@ class Cfg(dict):
         try:
             v = self[k]
         except KeyError:
-            raise AttributeError(k)
+            raise AttributeError(k) from None
         return Cfg(v) if isinstance(v, dict) else v
 
 

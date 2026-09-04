@@ -1,7 +1,7 @@
 """Profile Granite TurboCTC on CPU: feature extraction vs forward, thread counts, int8 dynamic quant. Then Kokoro int8."""
 import time, os, sys, copy
 import numpy as np, soundfile as sf, torch
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = next(p for p in [os.path.dirname(os.path.abspath(__file__))] + [os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), *([".."] * i))) for i in range(1, 5)] if os.path.exists(os.path.join(p, "pyproject.toml")))
 wav16, _ = sf.read(f"{ROOT}/samples/test_utterance_16k.wav", dtype="float32")
 from transformers import AutoModelForCTC, AutoProcessor
 mid = "ibm-granite/granite-speech-5.0-470m-turboctc"

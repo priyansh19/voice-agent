@@ -1,0 +1,26 @@
+name: Bug report
+description: Something does not work as described
+labels: [bug]
+body:
+  - type: textarea
+    attributes:
+      label: What happened
+      description: Include the console log lines around the problem (they are prefixed like `[stt]`, `[llm]`, `[tts-worker]`).
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Steps to reproduce
+      placeholder: 1. uv run python ui/server.py  2. ...
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Machine
+      placeholder: e.g. Intel Core Ultra 7 155H, Windows 11, Ollama 0.33.3
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Config changes
+      description: Anything you changed in config.yaml

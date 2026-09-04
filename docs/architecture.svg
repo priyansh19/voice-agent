@@ -66,7 +66,7 @@
   <text x="360" y="414" fill="#aeb4c2" text-anchor="middle" font-size="11">OpenVINO GenAI · runs in parallel · overrides the CTC transcript when they disagree · ~0.9 s</text>
 
   <rect x="560" y="372" width="230" height="100" rx="8" fill="#2a1f3d" stroke="#6b4fa8"/>
-  <text x="675" y="396" fill="#fff" text-anchor="middle" font-weight="600">Granite 4.2 3B · Ollama (Vulkan)</text>
+  <text x="675" y="396" fill="#fff" text-anchor="middle" font-weight="600">Granite 4.2 3B · private Ollama, 1 slot (Vulkan)</text>
   <text x="675" y="414" fill="#aeb4c2" text-anchor="middle" font-size="11">streaming, native tool loop, think=false</text>
   <text x="675" y="430" fill="#aeb4c2" text-anchor="middle" font-size="11">KV-cache reuse · abort by closing socket</text>
   <text x="675" y="446" fill="#aeb4c2" text-anchor="middle" font-size="11">first token 100–250 ms · 12–18 tok/s</text>

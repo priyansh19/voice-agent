@@ -18,7 +18,7 @@ from .chunker import ClauseChunker
 from .tts_client import make_tts
 from .speaker_gate import SpeakerGate
 from . import prefetch
-from .metrics import TurnMetrics, console
+from .metrics import TurnMetrics
 from .config import abspath
 
 
@@ -37,22 +37,24 @@ class Turn:
 
 
 class VoiceAgent:
-    def __init__(self, cfg, log=print, sink=None):
+    def __init__(self, cfg, log=print, sink=None, components=None):
+        """components: optional dict {stt, llm, tts, whisper, gate} of ready objects (tests inject fakes here)."""
         self.cfg, self.log = cfg, log
+        c = components or {}
         self.ollama_proc = None
-        if cfg.llm.get("private_instance", False):
+        if not c and cfg.llm.get("private_instance", False):
             from .ollama_launcher import ensure_ollama
             self.ollama_proc = ensure_ollama(cfg.llm.host, log)
-        self.stt = GraniteSTT(cfg.stt, log)
-        self.whisper = None
-        if cfg.stt.get("multilingual", {}).get("enabled"):
+        self.stt = c["stt"] if "stt" in c else GraniteSTT(cfg.stt, log)
+        self.whisper = c.get("whisper")
+        if not c and cfg.stt.get("multilingual", {}).get("enabled"):
             from .stt_whisper import WhisperSTT
             self.whisper = WhisperSTT(cfg.stt.multilingual, log)
-        self.llm = OllamaLLM(cfg.llm, log)
-        self.tts = make_tts(cfg.tts, log)
+        self.llm = c["llm"] if "llm" in c else OllamaLLM(cfg.llm, log)
+        self.tts = c["tts"] if "tts" in c else make_tts(cfg.tts, log)
         self.speaker = Speaker(cfg.audio.output_sample_rate, cfg.audio.output_device, sink=sink)
         self.ep = Endpointer(cfg.vad, cfg.audio.sample_rate, cfg.audio.frame_samples)
-        self.gate = SpeakerGate(cfg.speaker_gate, log) if cfg.get("speaker_gate") else None
+        self.gate = c.get("gate") if c else (SpeakerGate(cfg.speaker_gate, log) if cfg.get("speaker_gate") else None)
         self.history = []
         self.turn = None
         self.turn_counter = 0
@@ -212,7 +214,7 @@ class VoiceAgent:
             self.fillers = {k: v for k, v in made.items() if k in self.cfg.tts.fillers.texts}
             self.tool_fillers = {k: v for k, v in made.items() if k in self.cfg.tts.fillers.get("tool_texts", [])}
             self.log(f"[agent] fillers ready: {list(made)}")
-        if self.gate:
+        if self.gate and os.path.exists(abspath(self.cfg.tts.voice_ref)):
             self.gate.enroll(abspath(self.cfg.tts.voice_ref))
         self.speaker.start()
         self.log("[agent] ready — speak.")
@@ -279,7 +281,7 @@ class VoiceAgent:
                 if not t.first_audio_started:      # answer not audible yet: the user is continuing; merge into the next turn
                     if t.committed.is_set():
                         if t.transcript:
-                            self.pending_prefix = (self.pending_prefix + " " + t.transcript).strip()
+                            self.pending_prefix = t.transcript      # already contains any earlier prefix
                         else:
                             t.merge = True         # STT still running: _process will hand its text over
                     self._cancel(t)
@@ -361,7 +363,7 @@ class VoiceAgent:
         m.stt_done = time.perf_counter(); m.transcript = text; t.transcript = text
         if t.cancel.is_set():
             if getattr(t, "merge", False) and text:
-                self.pending_prefix = (self.pending_prefix + " " + text).strip()
+                self.pending_prefix = text                  # merged text (prefix + this segment)
             return
         if len(text.split()) == 0:
             self._cancel(t); return
@@ -401,11 +403,11 @@ class VoiceAgent:
             self._tts(t, chunk)
         m.llm_done = time.perf_counter(); m.response = t.response
         t.done_llm.set()
-        t.audio_q.put(("__end__", None))
         self.history += [{"role": "user", "content": text}, {"role": "assistant", "content": t.response.strip()}]
         self.history = self.history[-2 * self.cfg.llm.max_history_turns:]
         self.log(f"[agent] {t.response.strip()}")
         self.emit("response", {"turn": t.id, "text": t.response.strip()})
+        t.audio_q.put(("__end__", None))            # after the response event, so listeners see it before audio_done
 
     @staticmethod
     def _language(text):
@@ -486,7 +488,9 @@ class VoiceAgent:
             t.first_audio_started = True
             self.speaker.play(wav, on_start=start)
         self.speaker.wait_idle()
-        m.audio_done = time.perf_counter()
+        done = time.perf_counter()
+        m.audio_done = done
         m.report()
         self.emit("metrics", {"turn": t.id, **m.summary(), "rows": m.rows(), "transcript": m.transcript, "response": m.response})
         self.set_state("idle")
+        t.finished = True                           # set last: everything about this turn has been published

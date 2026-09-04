@@ -1,5 +1,5 @@
 import time, os, sys, torch, numpy as np, soundfile as sf
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = next(p for p in [os.path.dirname(os.path.abspath(__file__))] + [os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), *([".."] * i))) for i in range(1, 5)] if os.path.exists(os.path.join(p, "pyproject.toml")))
 from zipvoice.luxvoice import LuxTTS
 from zipvoice.onnx_modeling import sample
 tts = LuxTTS('YatharthS/LuxTTS', device='cpu', threads=4)

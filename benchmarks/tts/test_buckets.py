@@ -1,7 +1,7 @@
 """Quality check of the bucket/text-padding approach: write wavs for exact-dynamic (ORT), bucketed (ORT), bucketed (GPU f32)."""
 import sys, os, time, soundfile as sf, numpy as np
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(ROOT, "tts_worker")); sys.path.insert(0, ROOT)
+ROOT = next(p for p in [os.path.dirname(os.path.abspath(__file__))] + [os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), *([".."] * i))) for i in range(1, 5)] if os.path.exists(os.path.join(p, "pyproject.toml")))
 from lux_fast import LuxFast
 ref = f"{ROOT}/samples/test_utterance_24k.wav"
 texts = {"short": "Sure, I can help with that.", "mid": "Yes, bring an umbrella just in case.",

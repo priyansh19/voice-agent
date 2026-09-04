@@ -1,6 +1,6 @@
 """Speculative tool prefetch: cheap keyword rules on the transcript start a data fetch *before* the LLM runs,
 so common questions (weather) are answered in one LLM round instead of tool-call -> fetch -> second round."""
-import re, threading, time
+import re, time
 from concurrent.futures import ThreadPoolExecutor
 from . import tools
 
@@ -8,7 +8,8 @@ _pool = ThreadPoolExecutor(max_workers=2)
 _WEATHER = re.compile(r"\b(weather|rain|raining|umbrella|temperature|forecast|sunny|snow|hot|cold|windy|humid"
                       r"|mausam|mosam|baarish|barish|chhata|chata|garmi|sardi|thand)\b"
                       r"|(मौसम|बारिश|बरसात|छाता|तापमान|गर्मी|सर्दी|ठंड|धूप|बर्फ)", re.I)
-_LOC = re.compile(r"\b(?:in|at|around|mein)\s+([a-z][a-z\-]+(?:\s+[a-z][a-z\-]+)?)", re.I)
+_LOC = re.compile(r"\b(?:in|at|around)\s+([a-z][a-z\-]+(?:\s+[a-z][a-z\-]+)?)", re.I)
+_LOC_HINGLISH = re.compile(r"\b([a-z][a-z\-]+)\s+(?:mein|ka|ki|ke)\b", re.I)   # postposition: "Milan mein"
 _LOC_HI = re.compile(r"([ऀ-ॿ]+)\s+(?:में|मे|का|की|के)")
 _STOP = {"the", "there", "here", "today", "tomorrow", "morning", "afternoon", "evening", "tonight", "week", "weekend",
          "this", "that", "my", "our", "a", "an", "next", "few", "couple", "hours", "days", "case", "general", "particular",
@@ -23,6 +24,10 @@ def _location(text, default):
         words = [w for w in m.group(1).split() if w.lower() not in _STOP]
         if words and len(words[0]) > 2:
             return " ".join(words[:2])
+    for m in _LOC_HINGLISH.finditer(text):
+        w = m.group(1)
+        if w.lower() not in _STOP and len(w) > 2:
+            return w
     for m in _LOC_HI.finditer(text):
         if m.group(1) not in _STOP_HI:
             return m.group(1)

@@ -5,7 +5,7 @@ leaving the GPU to the LLM and TTS.  Encoder-only CTC: one forward pass, greedy 
 """
 import os, time
 import numpy as np
-from .config import ROOT, abspath
+from .config import abspath
 
 FPS = 50  # encoder input frames per second (20 ms hop)
 

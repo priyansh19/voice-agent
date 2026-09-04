@@ -2,7 +2,7 @@
 import time, sys, os
 import numpy as np, soundfile as sf, torch
 torch.set_num_threads(8)
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = next(p for p in [os.path.dirname(os.path.abspath(__file__))] + [os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), *([".."] * i))) for i in range(1, 5)] if os.path.exists(os.path.join(p, "pyproject.toml")))
 
 # --- Kokoro: make test audio (and time it) ---
 from kokoro_onnx import Kokoro

@@ -1,0 +1,24 @@
+name: Latency report
+description: Share per-turn numbers from your hardware (helps build the compatibility/latency table)
+labels: [latency, hardware]
+body:
+  - type: input
+    attributes:
+      label: Machine
+      placeholder: CPU / GPU / NPU, OS, Ollama version
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Per-turn latency table
+      description: Paste the table from the console or from `main.py --wav samples/test_utterance_16k.wav --no-audio-out` (3 turns, steady state).
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Which devices each stage ran on
+      placeholder: STT NPU, Whisper GPU, LLM GPU (Vulkan), TTS flow GPU, vocoder CPU
+  - type: textarea
+    attributes:
+      label: Config changes

@@ -1,0 +1,29 @@
+name: TTS worker environment
+
+# The cloned-voice worker lives in its own environment (LuxTTS pins transformers<=4.57). This checks that the
+# environment still resolves and imports on a clean machine. Weekly + on demand + when its inputs change.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"
+  pull_request:
+    paths: ["tts_worker/**", ".github/workflows/tts-worker.yml"]
+
+jobs:
+  worker-env:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv python install 3.12
+      - run: sudo apt-get update -q && sudo apt-get install -y -q libsndfile1 espeak-ng
+      - name: Create the isolated worker environment
+        run: |
+          uv venv --python 3.12 tts_worker/.venv
+          uv pip install --python tts_worker/.venv -r tts_worker/requirements.txt
+          uv pip install --python tts_worker/.venv --reinstall-package torch --reinstall-package torchaudio --index-url https://download.pytorch.org/whl/cpu torch torchaudio
+          uv pip install --python tts_worker/.venv openvino
+      - name: Import check (no model download)
+        run: |
+          tts_worker/.venv/bin/python -c "import zipvoice, linacodec, openvino; import sys; sys.path.insert(0,'tts_worker'); import lux_fast; print('worker imports OK')"

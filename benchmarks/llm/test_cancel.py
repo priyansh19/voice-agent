@@ -1,4 +1,7 @@
 import ollama, time
+import os, sys
+ROOT = next(p for p in [os.path.dirname(os.path.abspath(__file__))] + [os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), *([".."] * i))) for i in range(1, 5)] if os.path.exists(os.path.join(p, "pyproject.toml")))
+os.chdir(ROOT); sys.path.insert(0, ROOT)
 c = ollama.Client(); M = "granite4.2:3b"
 def ttft(msgs, tag):
     t = time.perf_counter(); r = c.chat(model=M, messages=msgs, stream=True, think=False, keep_alive=-1, options={"num_ctx": 4096})

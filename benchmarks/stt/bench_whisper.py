@@ -1,4 +1,7 @@
 import sys, time, glob, os, numpy as np, soundfile as sf
+import os, sys
+ROOT = next(p for p in [os.path.dirname(os.path.abspath(__file__))] + [os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), *([".."] * i))) for i in range(1, 5)] if os.path.exists(os.path.join(p, "pyproject.toml")))
+os.chdir(ROOT); sys.path.insert(0, ROOT)
 import openvino_genai as ov_genai
 sys.stdout.reconfigure(encoding="utf-8")
 def path(repo): return glob.glob(os.path.expanduser(f"~/.cache/huggingface/hub/models--{repo.replace('/', '--')}/snapshots/*"))[0]

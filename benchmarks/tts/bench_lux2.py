@@ -1,6 +1,6 @@
 import sys, os, time, soundfile as sf
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(ROOT, "tts_worker")); sys.path.insert(0, ROOT)
+ROOT = next(p for p in [os.path.dirname(os.path.abspath(__file__))] + [os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), *([".."] * i))) for i in range(1, 5)] if os.path.exists(os.path.join(p, "pyproject.toml")))
 from lux_fast import LuxFast
 ref = f"{ROOT}/samples/test_utterance_24k.wav"
 texts = ["Sure.", "Sure, I can help with that.", "Tomorrow in Milan it should be mostly cloudy with a chance of light rain in the afternoon."]

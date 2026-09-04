@@ -34,3 +34,26 @@ torchaudio = { index = "pytorch-cpu" }
 name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
 explicit = true
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=8",
+    "pytest-timeout>=2",
+    "ruff>=0.6",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/unit"]
+timeout = 120
+addopts = "-q"
+markers = ["speed: latency-budget tests of the orchestration with fake models"]
+
+[tool.ruff]
+line-length = 130
+target-version = "py312"
+exclude = ["benchmarks", ".venv", "tts_worker/.venv", "web"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "I"]
+ignore = ["E401", "E402", "E501", "E701", "E702", "E731", "B006", "B008", "B023", "W291", "W293", "I001"]

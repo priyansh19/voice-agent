@@ -1,6 +1,9 @@
 """Simulate the hosted page: stream a wav as int16 16 kHz frames to /audio in real time, collect the reply PCM."""
-import asyncio, json, sys, time, numpy as np, soundfile as sf, websockets
-sys.path.insert(0, ".")
+import os, sys
+ROOT = next(p for p in [os.path.dirname(os.path.abspath(__file__))] + [os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), *([".."] * i))) for i in range(1, 5)] if os.path.exists(os.path.join(p, "pyproject.toml")))
+os.chdir(ROOT)
+import asyncio, json, time, numpy as np, soundfile as sf, websockets
+sys.path.insert(0, ROOT)
 from agent.audio_io import resample
 async def main(path):
     a, sr = sf.read(path, dtype="float32"); a = resample(a, sr, 16000)

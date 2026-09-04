@@ -8,7 +8,7 @@ Fixes / additions over the upstream CPU path:
      (dynamic shapes recompile for ~20 s on every new length).  A bucket is filled with *real* filler text
      (not zeros) so the model stays in-distribution; the filler speech is cut off afterwards.
 """
-import os, glob, time, math
+import os, glob, time
 import numpy as np
 import torch
 from zipvoice.luxvoice import LuxTTS
@@ -95,7 +95,7 @@ class LuxFast:
     def _run_fm_static(self, N):
         req, names = self._compiled(N)
         def run(t, x, tc, sc, g):
-            req.infer(dict(zip(names, [t.numpy(), x.numpy(), tc.numpy(), sc.numpy(), g.numpy()])))
+            req.infer(dict(zip(names, [t.numpy(), x.numpy(), tc.numpy(), sc.numpy(), g.numpy()], strict=False)))
             return torch.from_numpy(np.array(req.get_output_tensor(0).data))
         return run
 

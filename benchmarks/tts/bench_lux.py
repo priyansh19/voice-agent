@@ -1,7 +1,7 @@
 """Benchmark LuxTTS voice cloning on CPU: prompt encode + per-sentence synth latency."""
 import time, os, sys
 import numpy as np, soundfile as sf, torch
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = next(p for p in [os.path.dirname(os.path.abspath(__file__))] + [os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), *([".."] * i))) for i in range(1, 5)] if os.path.exists(os.path.join(p, "pyproject.toml")))
 ref = sys.argv[1] if len(sys.argv) > 1 else f"{ROOT}/samples/test_utterance_24k.wav"
 threads = int(sys.argv[2]) if len(sys.argv) > 2 else 8
 from zipvoice.luxvoice import LuxTTS

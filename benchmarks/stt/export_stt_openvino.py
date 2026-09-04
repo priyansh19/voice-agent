@@ -1,7 +1,7 @@
 """Export Granite Speech 5.0 TurboCTC to OpenVINO IR and time it on CPU / Intel Arc GPU / NPU."""
 import time, os, sys
 import numpy as np, soundfile as sf, torch, openvino as ov
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = next(p for p in [os.path.dirname(os.path.abspath(__file__))] + [os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), *([".."] * i))) for i in range(1, 5)] if os.path.exists(os.path.join(p, "pyproject.toml")))
 OUT = f"{ROOT}/models/granite_stt_ov"; os.makedirs(OUT, exist_ok=True)
 from transformers import AutoModelForCTC, AutoProcessor
 mid = "ibm-granite/granite-speech-5.0-470m-turboctc"

@@ -1,0 +1,18 @@
+name: Feature request
+description: A new backend, language, tool, or latency idea
+labels: [enhancement]
+body:
+  - type: textarea
+    attributes:
+      label: Proposal
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Why (which measured problem or use case)
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: Area
+      options: [STT, LLM, TTS / voice cloning, VAD / endpointing, tools, console / hosting, latency, other]

@@ -1,7 +1,7 @@
 """Can the LuxTTS vocoder (LinaCodec Vocos, torch CPU ~100-300 ms) run on the Intel GPU via OpenVINO with static shapes?"""
 import sys, os, time, torch, numpy as np
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(ROOT, "tts_worker")); sys.path.insert(0, ROOT)
+ROOT = next(p for p in [os.path.dirname(os.path.abspath(__file__))] + [os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), *([".."] * i))) for i in range(1, 5)] if os.path.exists(os.path.join(p, "pyproject.toml")))
 from lux_fast import LuxFast
 import openvino as ov
 lf = LuxFast(threads=6, compute="ort")

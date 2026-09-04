@@ -1,6 +1,8 @@
 """TTFT with OLLAMA_NUM_PARALLEL=1 (second instance on :11435) vs the default instance (:11434)."""
+import os, sys
+ROOT = next(p for p in [os.path.dirname(os.path.abspath(__file__))] + [os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), *([".."] * i))) for i in range(1, 5)] if os.path.exists(os.path.join(p, "pyproject.toml")))
 import sys, time, json, httpx
-sys.path.insert(0, ".")
+sys.path.insert(0, ROOT)
 from agent import config as C
 from agent.tools import TOOLS
 cfg = C.load()

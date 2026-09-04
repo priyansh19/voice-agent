@@ -1,7 +1,7 @@
 """Build the static, hostable copy of the console (web/) for Vercel / any static host.
 The page talks to the backend given by ?backend=... or the field in the header (saved in localStorage)."""
-import os, shutil
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+import os
+ROOT = next(p for p in [os.path.dirname(os.path.abspath(__file__))] + [os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), *([".."] * i))) for i in range(1, 5)] if os.path.exists(os.path.join(p, "pyproject.toml")))
 os.makedirs(os.path.join(ROOT, "web"), exist_ok=True)
 html = open(os.path.join(ROOT, "ui", "index.html"), encoding="utf-8").read()
 banner = ('<div style="background:#1d2a40;color:#c9d4ea;padding:8px 20px;font-size:13px">Hosted console. '
