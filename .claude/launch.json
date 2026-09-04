@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "voice-agent-ui",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": ["run", "python", "-u", "ui/server.py"],
+      "port": 8765
+    }
+  ]
+}

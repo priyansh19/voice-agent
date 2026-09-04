@@ -1,0 +1,6 @@
+# Isolated env for LuxTTS (needs transformers<=4.57, conflicts with Granite STT's transformers>=5.16)
+--find-links https://k2-fsa.github.io/icefall/piper_phonemize.html
+linacodec @ git+https://github.com/ysharma3501/LinaCodec.git
+zipvoice @ git+https://github.com/ysharma3501/LuxTTS.git
+soundfile
+numpy

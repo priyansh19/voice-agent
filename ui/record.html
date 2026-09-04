@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Record Your Voice</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --bg:#0f1115; --panel:#171a21; --line:#262b36; --fg:#e6e8ee; --dim:#8a92a6; --acc:#4f8cff; --ok:#3ecf8e; --warn:#f5b342; --bad:#ff5c5c; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 system-ui, Segoe UI, sans-serif; }
+  header { padding:14px 24px; border-bottom:1px solid var(--line); background:var(--panel); display:flex; align-items:center; gap:14px; }
+  header h1 { font-size:17px; margin:0; }
+  main { max-width:1100px; margin:0 auto; padding:20px 24px; display:grid; grid-template-columns: 1.4fr 1fr; gap:18px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:18px; }
+  .card h2 { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); margin:0 0 12px; }
+  .script p { font-size:21px; line-height:1.6; margin:0 0 14px; color:#aeb4c2; transition:color .2s; }
+  .script p.now { color:#fff; }
+  .script p.done { color:#5c6478; }
+  .script p:first-child::before { content:"first 3 s = the clone's timbre → "; font-size:11px; color:var(--warn); display:block; letter-spacing:.05em; text-transform:uppercase; }
+  button { border:0; border-radius:10px; padding:12px 18px; font-size:15px; font-weight:600; cursor:pointer; color:#fff; background:#2a3040; }
+  button.primary { background:var(--acc); } button.ok { background:var(--ok); color:#06261a; } button.danger { background:var(--bad); }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:12px; }
+  .count { font-size:64px; font-weight:800; text-align:center; margin:6px 0; min-height:80px; }
+  .bar { height:10px; background:#0f1115; border-radius:6px; overflow:hidden; border:1px solid var(--line); }
+  .bar i { display:block; height:100%; width:0; background:var(--acc); transition:width .1s linear; }
+  .lvl i { background:var(--ok); transition:width .05s; }
+  ul { padding-left:18px; margin:0; } li { margin:6px 0; color:#c5cad6; }
+  .stat { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--line); }
+  .stat b { color:#fff; } .good { color:var(--ok); } .warn { color:var(--warn); } .bad { color:var(--bad); }
+  .hint { color:var(--dim); font-size:13px; }
+  audio { width:100%; margin-top:10px; }
+  select { background:#0f1115; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:8px; font-size:14px; }
+  #log { font:12px/1.4 ui-monospace, Consolas, monospace; color:var(--dim); white-space:pre-wrap; max-height:140px; overflow:auto; margin-top:10px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header><h1>🎙 Record your voice</h1><span class="hint">used for the cloned voice and the voice lock</span><span id="state" class="hint" style="margin-left:auto"></span></header>
+<main>
+  <section>
+    <div class="card">
+      <h2>Read this aloud, naturally, like you're telling a friend</h2>
+      <div class="script" id="script">
+        <p>When the sunlight strikes raindrops in the air, they act as a prism and form a rainbow.</p>
+        <p>The rainbow is a division of white light into many beautiful colors.</p>
+        <p>These take the shape of a long round arch, with its path high above, and its two ends apparently beyond the horizon.</p>
+        <p>Honestly, I think we should just grab lunch first, and then figure out the rest of the afternoon.</p>
+        <p>Can you believe it's already September? This year went by so quickly.</p>
+      </div>
+      <div class="count" id="count"></div>
+      <div class="bar"><i id="prog"></i></div>
+      <div class="row" style="justify-content:space-between">
+        <span class="hint" id="timer">ready</span>
+        <span class="hint">input level</span>
+      </div>
+      <div class="bar lvl"><i id="lvl"></i></div>
+      <div class="row">
+        <label class="hint">microphone <select id="dev"><option value="default">system default</option></select></label>
+      </div>
+      <div class="hint" id="lvlhint">Speak normally: the level bar should reach the middle. If it barely moves, pick another microphone above or raise the mic level in Windows Sound settings.</div>
+      <div class="row">
+        <label class="hint">length <select id="secs"><option>12</option><option selected>20</option><option>30</option></select> s</label>
+        <button class="primary" id="start">Start recording (3 s countdown)</button>
+        <button id="again" disabled>Record again</button>
+        <button class="ok" id="use" disabled>Use this voice ✓</button>
+        <button id="test" disabled>Test the clone 🔊</button>
+      </div>
+    </div>
+  </section>
+  <aside>
+    <div class="card">
+      <h2>Notes for a clean take</h2>
+      <ul>
+        <li><b>Quiet room</b>: no music, TV, fans or typing. Close the window.</li>
+        <li><b>20–30 cm</b> from the microphone, slightly off-axis to avoid pops. Don't touch the desk or laptop.</li>
+        <li><b>Start within 1 second</b> of the countdown ending. The clone copies its timbre from the <b>first 3 seconds</b>, so make the first sentence your best, most natural one.</li>
+        <li><b>Talk, don't read</b>: your normal speed, energy and expression. Flat reading makes a flat clone.</li>
+        <li>Keep a <b>steady volume</b>; no shouting, no whispering. Breathe normally; avoid pauses longer than a second.</li>
+        <li>The <b>whole take</b> trains the voice lock, so keep talking for the full length even if you finish the script (describe your day).</li>
+        <li>Headset mics are fine; laptop mics work if the room is quiet.</li>
+      </ul>
+    </div>
+    <div class="card" style="margin-top:18px">
+      <h2>Last take</h2>
+      <div id="stats" class="hint">nothing recorded yet</div>
+      <audio id="player" controls hidden></audio>
+      <div id="log"></div>
+    </div>
+  </aside>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+let ws, secs = 20, recording = false, t0 = 0, sents = [...document.querySelectorAll('#script p')];
+function connect() { ws = new WebSocket(`ws://${location.host}/ws`); ws.onmessage = e => handle(JSON.parse(e.data)); ws.onopen = () => send({cmd: 'devices'}); ws.onclose = () => setTimeout(connect, 1000); }
+function send(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
+function log(s) { const l = $('#log'); l.textContent += s + '\n'; l.scrollTop = 1e9; }
+function cls(v, good, warn) { return v <= good ? 'good' : v <= warn ? 'warn' : 'bad'; }
+function handle(m) {
+  const d = m.data;
+  if (m.kind === 'state') $('#state').textContent = 'agent: ' + d;
+  if (m.kind === 'devices') {
+    const s = $('#dev'); s.innerHTML = '<option value="default">system default</option>';
+    d.items.forEach(x => { const o = document.createElement('option'); o.value = x.index; o.textContent = (x.default ? '★ ' : '') + x.name; s.appendChild(o); });
+    s.value = d.current == null ? 'default' : String(d.current);
+  }
+  if (m.kind === 'log' && /voice|gate|tts-worker\] (voice|prompt)/.test(d)) log(d);
+  if (m.kind === 'rec_level') {
+    $('#lvl').style.width = Math.min(100, d.rms * 600) + '%';
+    $('#lvl').style.background = d.peak > 0.98 ? 'var(--bad)' : d.rms < 0.01 ? 'var(--warn)' : 'var(--ok)';
+    const el = d.elapsed; $('#prog').style.width = (100 * el / secs) + '%'; $('#timer').textContent = `${el.toFixed(1)} / ${secs} s`;
+    const per = secs / sents.length; sents.forEach((p, i) => { p.className = el >= (i + 1) * per ? 'done' : el >= i * per ? 'now' : ''; });
+  }
+  if (m.kind === 'rec_done') {
+    recording = false; $('#count').textContent = ''; $('#timer').textContent = 'done'; sents.forEach(p => p.className = '');
+    $('#stats').innerHTML = `
+      <div class="stat"><span>duration</span><b>${d.duration.toFixed(1)} s</b></div>
+      <div class="stat"><span>peak level</span><b class="${d.peak > 0.99 ? 'bad' : d.peak < 0.2 ? 'warn' : 'good'}">${(20*Math.log10(d.peak||1e-6)).toFixed(1)} dBFS${d.peak > 0.99 ? ' (clipping!)' : d.peak < 0.2 ? ' (too quiet)' : ''}</b></div>
+      <div class="stat"><span>clipped samples</span><b class="${cls(d.clipped_pct, 0.01, 0.2)}">${d.clipped_pct.toFixed(2)} %</b></div>
+      <div class="stat"><span>silence</span><b class="${cls(d.silence_pct, 25, 45)}">${d.silence_pct.toFixed(0)} %</b></div>
+      <div class="stat"><span>lead-in silence</span><b class="${cls(d.lead_silence_s, 1.0, 2.5)}">${d.lead_silence_s.toFixed(2)} s (trimmed automatically)</b></div>
+      <div class="stat"><span>verdict</span><b class="${d.ok ? 'good' : 'warn'}">${d.verdict}</b></div>`;
+    $('#player').hidden = false; $('#player').src = '/voice.wav?candidate=1&t=' + Date.now();
+    $('#use').disabled = false; $('#again').disabled = false; $('#start').disabled = true; $('#test').disabled = true;
+  }
+  if (m.kind === 'voice_reloaded') { $('#state').textContent = 'new voice active ✓ — close this window and unmute the mic in the console'; $('#test').disabled = false; $('#use').disabled = true; $('#start').disabled = false; log('[voice] active'); }
+}
+async function start() {
+  if (recording) return; secs = +$('#secs').value; $('#stats').textContent = '…'; $('#player').hidden = true; sents.forEach(p => p.className = '');
+  $('#start').disabled = true; $('#use').disabled = true; $('#again').disabled = true;
+  for (let c = 3; c > 0; c--) { $('#count').textContent = c; await new Promise(r => setTimeout(r, 1000)); }
+  $('#count').textContent = '● REC'; $('#count').style.color = 'var(--bad)'; recording = true;
+  send({cmd: 'record_start', seconds: secs});
+}
+$('#start').onclick = start; $('#again').onclick = () => { $('#start').disabled = false; start(); };
+$('#use').onclick = () => { $('#use').disabled = true; $('#state').textContent = 'encoding the new voice… (~20 s)'; send({cmd: 'record_use'}); };
+$('#test').onclick = () => send({cmd: 'record_test'});
+$('#dev').onchange = e => send({cmd: 'set', key: 'input_device', value: e.target.value});
+connect();
+</script>
+</body>
+</html>

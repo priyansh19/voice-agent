@@ -1,0 +1,23 @@
+# environments
+.venv/
+tts_worker/.venv/
+__pycache__/
+*.pyc
+
+# models, caches, compiled blobs (GBs; re-created by --prepare / first start)
+models/
+*.blob
+*.cl_cache
+
+# personal data: your voice recordings and enrolled voiceprint
+voices/
+!voices/.gitkeep
+
+# run artifacts
+out/
+samples/lux_*.wav
+samples/bk_*.wav
+samples/hindi_16k.wav
+samples/hinglish_16k.wav
+*.log
+.claude/launch.json.bak

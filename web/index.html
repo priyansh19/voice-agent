@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Voice Agent Console</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --bg:#0f1115; --panel:#171a21; --line:#262b36; --fg:#e6e8ee; --dim:#8a92a6; --acc:#4f8cff; --ok:#3ecf8e; --warn:#f5b342; --bad:#ff5c5c; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.45 system-ui, Segoe UI, sans-serif; }
+  header { display:flex; align-items:center; gap:16px; padding:12px 20px; border-bottom:1px solid var(--line); background:var(--panel); }
+  header h1 { font-size:16px; margin:0; font-weight:600; }
+  .state { padding:4px 10px; border-radius:999px; background:#222; color:var(--dim); font-weight:600; text-transform:uppercase; font-size:11px; letter-spacing:.06em; }
+  .state.idle{color:var(--ok)} .state.listening{color:var(--acc)} .state.thinking{color:var(--warn)} .state.speaking{color:#c58bff} .state.loading{color:var(--dim)} .state.error{color:var(--bad)} .state.recording{color:var(--bad)}
+  main { display:grid; grid-template-columns: 340px 1fr 380px; gap:16px; padding:16px 20px; height: calc(100vh - 54px); }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px; overflow:auto; }
+  .card h2 { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); margin:0 0 10px; }
+  #mic { width:100%; padding:22px 10px; font-size:18px; font-weight:700; border:0; border-radius:12px; cursor:pointer; color:#fff; background:#3a3f4b; }
+  #mic.live { background:var(--bad); box-shadow:0 0 0 6px rgba(255,92,92,.18); }
+  #mic:disabled { opacity:.5; cursor:not-allowed; }
+  .hint { color:var(--dim); font-size:12px; margin-top:8px; }
+  .row { display:flex; gap:8px; margin-top:10px; align-items:center; }
+  input[type=text] { flex:1; background:#0f1115; border:1px solid var(--line); color:var(--fg); padding:9px 10px; border-radius:8px; }
+  button.sm { background:#2a3040; color:var(--fg); border:1px solid var(--line); padding:8px 12px; border-radius:8px; cursor:pointer; }
+  button.sm:hover { border-color:var(--acc); }
+  label.tg { display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:1px solid var(--line); }
+  select { background:#0f1115; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:4px 6px; }
+  #chat { display:flex; flex-direction:column; gap:10px; }
+  .msg { max-width:85%; padding:10px 12px; border-radius:12px; white-space:pre-wrap; }
+  .you { align-self:flex-end; background:#243b6b; } .agent { align-self:flex-start; background:#22262f; }
+  .meta { font-size:11px; color:var(--dim); margin-top:4px; }
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  td { padding:4px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  td.n { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  tr.hl td { color:var(--ok); font-weight:700; }
+  .big { font-size:34px; font-weight:800; margin:4px 0 2px; }
+  .big small { font-size:13px; color:var(--dim); font-weight:500; }
+  #log { font:11px/1.4 ui-monospace, Consolas, monospace; color:var(--dim); white-space:pre-wrap; max-height:220px; overflow:auto; }
+  #hist { display:flex; gap:4px; align-items:flex-end; height:60px; margin-top:6px; }
+  #hist div { flex:1; background:var(--acc); border-radius:3px 3px 0 0; min-width:6px; }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; height:auto; } .card { max-height: 70vh; } }
+</style>
+</head>
+<body>
+<div style="background:#1d2a40;color:#c9d4ea;padding:8px 20px;font-size:13px">Hosted console. Enter your backend URL (e.g. the Cloudflare tunnel of the machine running <code>ui/server.py</code>) in the <b>backend</b> field, then tick <b>Use THIS browser's microphone</b>.</div><header>
+  <h1>Voice Agent Console</h1>
+  <span id="state" class="state loading">loading</span>
+  <span id="models" class="hint"></span>
+  <span style="margin-left:auto" class="hint">backend <input type="text" id="backend" placeholder="host:port or https://tunnel" style="width:230px;padding:5px 8px;background:#0f1115;border:1px solid var(--line);color:var(--fg);border-radius:6px"></span>
+</header>
+<main>
+  <section class="card">
+    <h2>Microphone</h2>
+    <button id="mic" disabled>Loading models…</button>
+    <div class="hint">Click or press <b>Space</b> to toggle. While live, just talk; the agent answers when you pause.</div>
+    <div class="row"><button class="sm" id="stop">Stop speaking</button><button class="sm" id="clear">Clear history</button></div>
+    <label class="tg" style="margin-top:10px">Use THIS browser's microphone &amp; speaker (remote backend / hosted page) <input type="checkbox" id="bmic"></label>
+    <div class="hint" id="bmicNote">Off = the backend machine's own microphone and speaker are used.</div>
+    <h2 style="margin-top:18px">Test without the mic</h2>
+    <div class="row"><input type="text" id="say" placeholder="Type what you would have said… (Enter)"><button class="sm" id="sayBtn">Send</button></div>
+    <div class="row"><button class="sm" id="wav">Replay test utterance (wav → VAD → STT)</button></div>
+    <h2 style="margin-top:18px">Settings (live)</h2>
+    <label class="tg">Cloned-voice filler while thinking <input type="checkbox" id="fillers"></label>
+    <label class="tg">Speculative STT+LLM before firm end <input type="checkbox" id="speculative"></label>
+    <label class="tg">Barge-in (interrupt playback) <input type="checkbox" id="barge_in"></label>
+    <label class="tg">End-of-turn silence (ms) <select id="min_silence_ms"><option>240</option><option>320</option><option>400</option><option>500</option><option>700</option></select></label>
+    <label class="tg">TTS quality steps (fewer = faster) <select id="steps"><option>2</option><option>3</option><option>4</option></select></label>
+    <h2 style="margin-top:18px">Your voice</h2>
+    <div class="row"><button class="sm" id="rec">🎙 Record my voice…</button><span class="hint" id="voiceref"></span></div>
+    <div class="hint">Opens a window with a reading script, recording tips and a quality check. Used for the cloned voice AND the voice lock.</div>
+    <label class="tg">Voice lock: answer only my voice <input type="checkbox" id="voice_lock"></label>
+    <label class="tg">Voice lock strictness <input type="range" id="gate_threshold" min="0.2" max="0.8" step="0.05" style="width:120px"> <span id="gate_val"></span></label>
+    <div class="hint" id="gateNote">last utterance similarity: –</div>
+    <div class="hint" id="settingsNote"></div>
+  </section>
+  <section class="card"><h2>Conversation</h2><div id="chat"></div></section>
+  <section class="card">
+    <h2>Latency, last turn</h2>
+    <div class="big" id="lat">–<small> ms to first answer audio</small></div>
+    <div class="hint" id="latnote"></div>
+    <div id="hist"></div>
+    <table id="rows"></table>
+    <h2 style="margin-top:16px">Log</h2>
+    <div id="log"></div>
+  </section>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+let ws, muted = true, ready = false, curAgentEl = null, hist = [];
+// Backend selection: ?backend=..., then localStorage, then the page's own host (local run).
+const qs = new URLSearchParams(location.search);
+let BACKEND = qs.get('backend') || localStorage.getItem('backend') || (location.protocol.startsWith('http') ? location.host : '127.0.0.1:8765');
+function beHttp() { return BACKEND.startsWith('http') ? BACKEND.replace(/\/$/, '') : `http://${BACKEND}`; }
+function beWs() { return beHttp().replace(/^http/, 'ws'); }
+$('#backend').value = BACKEND;
+$('#backend').addEventListener('change', e => { BACKEND = e.target.value.trim(); localStorage.setItem('backend', BACKEND); try { ws.close(); } catch (_) {} });
+function connect() {
+  ws = new WebSocket(`${beWs()}/ws`);
+  ws.onmessage = e => handle(JSON.parse(e.data));
+  ws.onclose = () => setTimeout(connect, 1000);
+}
+// ---- browser microphone + playback (audio over /audio WebSocket) ----
+let aws = null, micCtx = null, outCtx = null, playhead = 0, sources = [];
+const WORKLET = `class P extends AudioWorkletProcessor{constructor(){super();this.buf=new Int16Array(512);this.n=0}
+process(inputs){const ch=inputs[0][0];if(!ch)return true;for(let i=0;i<ch.length;i++){this.buf[this.n++]=Math.max(-32768,Math.min(32767,ch[i]*32767));
+if(this.n===512){this.port.postMessage(this.buf.buffer.slice(0));this.n=0}}return true}}registerProcessor('pcm16',P)`;
+async function startBrowserAudio() {
+  const stream = await navigator.mediaDevices.getUserMedia({audio: {channelCount: 1, sampleRate: 16000, echoCancellation: true, noiseSuppression: true, autoGainControl: true}});
+  micCtx = new AudioContext({sampleRate: 16000});
+  await micCtx.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET], {type: 'application/javascript'})));
+  const src = micCtx.createMediaStreamSource(stream), node = new AudioWorkletNode(micCtx, 'pcm16');
+  src.connect(node);
+  outCtx = new AudioContext({sampleRate: 48000}); playhead = 0;
+  aws = new WebSocket(`${beWs()}/audio`); aws.binaryType = 'arraybuffer';
+  node.port.onmessage = e => { if (aws.readyState === 1 && !muted) aws.send(e.data); };
+  aws.onmessage = e => {
+    if (typeof e.data === 'string') { if (e.data === 'stop') { sources.forEach(s => { try { s.stop(); } catch (_) {} }); sources = []; playhead = outCtx.currentTime; } return; }
+    const i16 = new Int16Array(e.data), f32 = new Float32Array(i16.length);
+    for (let i = 0; i < i16.length; i++) f32[i] = i16[i] / 32768;
+    const buf = outCtx.createBuffer(1, f32.length, 48000); buf.copyToChannel(f32, 0);
+    const s = outCtx.createBufferSource(); s.buffer = buf; s.connect(outCtx.destination);
+    playhead = Math.max(outCtx.currentTime + 0.05, playhead); s.start(playhead); playhead += buf.duration; sources.push(s);
+    s.onended = () => { sources = sources.filter(x => x !== s); };
+  };
+  aws.onclose = () => { if ($('#bmic').checked) setTimeout(() => { if ($('#bmic').checked) startBrowserAudio(); }, 1500); };
+  $('#bmicNote').textContent = 'Browser audio active: your mic streams to the backend, replies play here (browser echo cancellation on).';
+}
+function stopBrowserAudio() {
+  try { aws && aws.close(); } catch (_) {} aws = null;
+  try { micCtx && micCtx.close(); } catch (_) {} try { outCtx && outCtx.close(); } catch (_) {}
+  $('#bmicNote').textContent = 'Off = the backend machine\'s own microphone and speaker are used.';
+}
+$('#bmic').onchange = e => { if (e.target.checked) startBrowserAudio().catch(err => { alert('Microphone access failed: ' + err.message); e.target.checked = false; }); else stopBrowserAudio(); };
+function send(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
+function setState(s) { const el = $('#state'); el.textContent = s; el.className = 'state ' + s; }
+function setMuted(m) { muted = m; const b = $('#mic'); b.textContent = m ? '🎤 Mic muted — click to talk' : '🔴 LIVE — listening'; b.className = m ? '' : 'live'; }
+function setReady(r) { ready = r; $('#mic').disabled = !r; if (r) setMuted(muted); }
+function addMsg(cls, text, meta) {
+  const d = document.createElement('div'); d.className = 'msg ' + cls; d.appendChild(document.createTextNode(text));
+  if (meta) { const m = document.createElement('div'); m.className = 'meta'; m.textContent = meta; d.appendChild(m); }
+  $('#chat').appendChild(d); $('#chat').parentElement.scrollTop = 1e9; return d;
+}
+function applySettings(s) {
+  $('#fillers').checked = !!s.fillers; $('#speculative').checked = !!s.speculative; $('#barge_in').checked = !!s.barge_in;
+  $('#min_silence_ms').value = s.min_silence_ms; $('#steps').value = s.steps; $('#models').textContent = `${s.model} · TTS ${s.backend}`;
+  $('#voice_lock').checked = !!s.voice_lock; $('#gate_threshold').value = s.gate_threshold; $('#gate_val').textContent = s.gate_threshold; $('#voiceref').textContent = s.voice_ref || '';
+}
+function drawHist() {
+  const h = $('#hist'); h.innerHTML = ''; const mx = Math.max(1000, ...hist);
+  hist.slice(-30).forEach(v => { const d = document.createElement('div'); d.style.height = (100 * v / mx) + '%'; d.title = v + ' ms'; d.style.background = v < 1000 ? 'var(--ok)' : v < 1500 ? 'var(--warn)' : 'var(--bad)'; h.appendChild(d); });
+}
+function handle(m) {
+  const d = m.data;
+  switch (m.kind) {
+    case 'hello': setState(d.state); setMuted(d.muted); applySettings(d.settings); setReady(d.state !== 'loading' && d.state !== 'error');
+      (d.history || []).forEach(handle); break;
+    case 'ready': setReady(true); setState('idle'); setMuted(d.muted); applySettings(d.settings); break;
+    case 'state': setState(d); if (d === 'idle' || d === 'listening') curAgentEl = null; break;
+    case 'muted': setMuted(d); break;
+    case 'settings': applySettings(d); break;
+    case 'transcript': addMsg('you', d.text, d.speculative ? 'speculative transcript' : ''); curAgentEl = null; break;
+    case 'delta': if (!curAgentEl) curAgentEl = addMsg('agent', ''); curAgentEl.firstChild.textContent += d.text; break;
+    case 'response': if (curAgentEl) curAgentEl.firstChild.textContent = d.text; else addMsg('agent', d.text); break;
+    case 'metrics': {
+      const v = d.first_audio_ms; const f = d.filler_ms;
+      $('#lat').innerHTML = (isNaN(v) ? '–' : Math.round(v)) + '<small> ms to first answer audio</small>';
+      $('#latnote').textContent = (!isNaN(f) ? `filler audio at ${Math.round(f)} ms · ` : '') + `STT ${Math.round(d.stt_ms)} ms · LLM first token ${Math.round(d.llm_first_token_ms)} ms`;
+      if (!isNaN(v)) { hist.push(Math.round(v)); drawHist(); }
+      $('#rows').innerHTML = d.rows.map(r => `<tr class="${r[0].startsWith('FIRST') ? 'hl' : ''}"><td>${r[0]}</td><td class="n">${r[1]}</td><td>${r[2]}</td></tr>`).join('');
+      break; }
+    case 'log': { const l = $('#log'); l.textContent += d + '\n'; l.scrollTop = 1e9; break; }
+    case 'tool': addMsg('agent', `🔧 ${d.name}…`); curAgentEl = null; break;
+    case 'gate': $('#gateNote').textContent = `last utterance similarity: ${d.sim} (${d.ok ? 'accepted' : 'IGNORED'}, ${d.ms} ms)`; $('#gateNote').style.color = d.ok ? 'var(--ok)' : 'var(--bad)'; break;
+  }
+}
+$('#mic').onclick = () => send({cmd: 'mute', value: !muted});
+document.addEventListener('keydown', e => { if (e.code === 'Space' && e.target.tagName !== 'INPUT') { e.preventDefault(); if (ready) send({cmd: 'mute', value: !muted}); } });
+$('#sayBtn').onclick = () => { const t = $('#say').value.trim(); if (t) { send({cmd: 'say', text: t}); $('#say').value = ''; } };
+$('#say').addEventListener('keydown', e => { if (e.key === 'Enter') $('#sayBtn').click(); });
+$('#wav').onclick = () => send({cmd: 'test_wav'});
+$('#stop').onclick = () => send({cmd: 'stop'});
+$('#clear').onclick = () => { send({cmd: 'clear'}); $('#chat').innerHTML = ''; };
+for (const k of ['fillers', 'speculative', 'barge_in']) $('#' + k).onchange = e => send({cmd: 'set', key: k, value: e.target.checked});
+$('#min_silence_ms').onchange = e => send({cmd: 'set', key: 'min_silence_ms', value: +e.target.value});
+$('#steps').onchange = e => send({cmd: 'set', key: 'steps', value: +e.target.value});
+$('#voice_lock').onchange = e => send({cmd: 'set', key: 'voice_lock', value: e.target.checked});
+$('#gate_threshold').oninput = e => { $('#gate_val').textContent = e.target.value; };
+$('#gate_threshold').onchange = e => send({cmd: 'set', key: 'gate_threshold', value: +e.target.value});
+$('#rec').onclick = () => window.open(`${beHttp()}/record`, 'record_voice', 'width=1180,height=860');
+connect();
+</script>
+</body>
+</html>

@@ -1,0 +1,88 @@
+# Sub-second local voice agent — every model is open-weight (Apache-2.0 / MIT).
+#   STT  Granite Speech 5.0 470M TurboCTC  -> Intel NPU via OpenVINO (static buckets)
+#   LLM  Granite 4.2 3B via Ollama          -> Intel Arc iGPU (Vulkan)
+#   TTS  LuxTTS (your cloned voice)         -> flow decoder on Arc iGPU via OpenVINO, vocoder on CPU
+#   VAD  Silero VAD v6                      -> CPU
+
+audio:
+  sample_rate: 16000          # mic capture rate (native for STT + VAD)
+  frame_samples: 512          # 32 ms frames (Silero VAD v6 native chunk)
+  output_sample_rate: 48000   # LuxTTS native; Kokoro (24 kHz) is resampled
+  input_device: null          # sounddevice index or name; null = system default (see --list-devices)
+  output_device: null
+
+speaker_gate:                 # "voice lock": answer only the enrolled voice (needs YOUR recording in tts.voice_ref)
+  enabled: false              # turn on in the UI after recording your voice
+  threshold: 0.45             # cosine similarity; raise if others still get through, lower if you get rejected
+  model: models/speaker/wespeaker_en_voxceleb_CAM++.onnx
+
+vad:
+  threshold: 0.6
+  min_rms_ratio: 2.5          # onset must be this many times louder than the measured room noise floor
+  min_speech_ms: 240          # shorter bursts are ignored (clicks, breaths)
+  min_silence_ms: 280         # firm end-of-turn after this much trailing silence
+  min_silence_uncertain_ms: 700   # used instead when the speculative transcript looks unfinished ("... and")
+  pre_roll_ms: 320            # audio kept from before speech onset
+  max_utterance_s: 30
+  speculative: true           # start STT + LLM on the first silent frame; cancel if you keep talking
+  barge_in: false             # true = you can interrupt playback (use a headset: the laptop mic hears the speaker)
+
+stt:
+  model_id: ibm-granite/granite-speech-5.0-470m-turboctc
+  device: NPU                 # NPU (Core Ultra), GPU, or CPU
+  buckets_frames: [300, 750]  # static shapes; 50 frames = 1 s  -> 6 s and 15 s buckets
+  ov_dir: models/granite_stt_ov
+  multilingual:               # Whisper large-v3-turbo runs alongside; overrides the English CTC when they disagree
+    enabled: true
+    model: OpenVINO/whisper-large-v3-turbo-int4-ov
+    device: GPU               # ~0.9 s per utterance on the Arc iGPU
+    english_threshold: 0.7    # if the fast English transcript scores below this, wait for Whisper instead of guessing
+    skip_check_above: 0.9     # clearly English: don't run Whisper at all (keeps the GPU free for the LLM + TTS)
+
+llm:
+  host: http://127.0.0.1:11436   # NOT "localhost": Windows tries IPv6 first and burns ~1.7 s per request
+  private_instance: true         # spawn our own `ollama serve` on that port with OLLAMA_NUM_PARALLEL=1 (KV prefix reuse)
+  model: granite4.2:3b
+  think: false
+  keep_alive: -1              # keep the model resident on the GPU
+  num_ctx: 4096
+  temperature: 0.6
+  num_predict: 160
+  max_history_turns: 12
+  default_location: ""        # e.g. "Milan": used for weather questions that don't name a place
+  prefetch_wait_s: 1.5        # how long to wait for a speculative data fetch before letting the LLM use tools instead
+  system_prompt: |
+    You are a spoken voice assistant. Each user message starts with a tag naming the language they spoke: always
+    answer in that language. Plain spoken sentences, no markdown or lists. One to three short sentences. Start with
+    the substance, never with "Sure" or "Okay". Use the tools for weather, facts, news, time and math instead of
+    saying you lack access: call the tool immediately and silently (no "let me check" text); after the result
+    answer briefly with the key numbers.
+
+chunker:
+  first_chunk_min_words: 2    # emit the first TTS chunk as early as possible
+  first_chunk_max_words: 3    # ... and never wait for punctuation beyond this many words
+  min_words: 6                # later chunks: split on clause boundaries after this many words
+  max_chars: 180
+
+tts:
+  backend: lux                # lux = your cloned voice (LuxTTS); kokoro = generic fast fallback voice
+  voice_ref: voices/me.wav    # 8-15 s clean recording of your voice:  python main.py --record-voice 12
+  prompt_duration_s: 3.0      # seconds of the reference conditioned on per sentence (shorter = faster)
+  steps: 4                    # flow-matching steps: 4 = best quality, 2 = ~40% faster
+  first_chunk_steps: 2        # the first chunk of every answer trades a little quality for ~250 ms
+  speed: 1.0
+  compute: ov                 # ov = OpenVINO static buckets on ov_device; ort = onnxruntime CPU (slow, dynamic)
+  ov_device: GPU
+  buckets: [384, 448, 512, 640, 768]   # total feature frames (3 s prompt = 281) at 93.75 frames/s
+  threads: 4                  # hybrid P/E-core CPU: 4 threads measured faster than 6-8 for the vocoder
+  fillers:
+    enabled: true             # cloned-voice filler played at end-of-turn if the answer is not ready yet
+    after_ms: 150             # ... but only if nothing is ready this soon after the end of your speech
+    texts: ["Hmm.", "Right.", "Let me think.", "Okay.", "Well,"]
+    tool_texts: ["Let me check that.", "One moment, checking."]   # spoken when the LLM calls a tool
+  kokoro:
+    model: models/kokoro/kokoro-v1.0.onnx
+    voices: models/kokoro/voices-v1.0.bin
+    voice: am_adam
+    hindi_voice: hf_alpha     # used for Devanagari replies (LuxTTS clone is English-only)
+  hindi_fallback: true
