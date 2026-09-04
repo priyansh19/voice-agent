@@ -11,8 +11,9 @@ def client():
     from tests.unit.fakes import FakeSTT, FakeLLM, FakeTTS
     from agent.pipeline import VoiceAgent
     srv.cfg["tts"]["fillers"]["after_ms"] = 50
-    agent = VoiceAgent(srv.cfg, log=srv.log, components={"stt": FakeSTT(delay=0.02), "llm": FakeLLM(ttft=0.02, tok_delay=0.005),
-                                                          "tts": FakeTTS(delay=0.02), "whisper": None, "gate": None})
+    agent = VoiceAgent(srv.cfg, log=srv.log, sink=lambda x: None,          # no audio device on CI runners
+                       components={"stt": FakeSTT(delay=0.02), "llm": FakeLLM(ttft=0.02, tok_delay=0.005),
+                                   "tts": FakeTTS(delay=0.02), "whisper": None, "gate": None})
     agent.on_event = srv.broadcast; agent.muted = True
     srv.agent = agent
     orig = srv.start_agent

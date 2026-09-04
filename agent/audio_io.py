@@ -49,9 +49,14 @@ class Speaker:
     def start(self):
         if self.sink is not None:
             return
-        self.stream = sd.OutputStream(samplerate=self.sr, channels=1, dtype="float32", blocksize=480,
-                                      device=self.device, callback=self._cb, latency="low")
-        self.stream.start()
+        try:
+            self.stream = sd.OutputStream(samplerate=self.sr, channels=1, dtype="float32", blocksize=480,
+                                          device=self.device, callback=self._cb, latency="low")
+            self.stream.start()
+        except Exception as e:                 # headless machine / CI: keep running, audio goes to browsers only
+            print(f"[audio] no output device ({e.__class__.__name__}); local playback disabled", flush=True)
+            self.stream = None
+            self.sink = lambda x: None
 
     def _cb(self, outdata, frames, t, status):
         out = np.zeros(frames, dtype=np.float32); filled = 0; fire = []
@@ -72,16 +77,16 @@ class Speaker:
         outdata[:, 0] = out
 
     def play(self, chunk: np.ndarray, on_start=None):
-        if self.sink is not None:
-            if on_start: on_start()
-            self.sink(chunk); self.last_active = time.perf_counter(); return
-        if self.remote is not None:            # browser playback: ship int16 PCM, track when it will finish
+        if self.remote is not None:            # browser playback (takes precedence): ship int16 PCM, track when it ends
             now = time.perf_counter()
             self.remote_busy_until = max(now, self.remote_busy_until) + len(chunk) / self.sr
             self.remote((np.clip(chunk, -1, 1) * 32767).astype(np.int16).tobytes())
             self.last_active = now
             if on_start: on_start()
             return
+        if self.sink is not None:
+            if on_start: on_start()
+            self.sink(chunk); self.last_active = time.perf_counter(); return
         with self.lock:
             self.chunks.append((chunk.astype(np.float32, copy=False), on_start))
 
@@ -93,10 +98,10 @@ class Speaker:
             if self.remote_stop: self.remote_stop()
 
     def is_busy(self, tail_ms=450):
-        if self.sink is not None:
-            return False
         if self.remote is not None:
             return time.perf_counter() < self.remote_busy_until + tail_ms / 1000
+        if self.sink is not None:
+            return False
         return self.playing or bool(self.chunks) or (time.perf_counter() - self.last_active) * 1000 < tail_ms
 
     def wait_idle(self, timeout=120):
@@ -104,6 +109,8 @@ class Speaker:
         if self.remote is not None:
             while time.perf_counter() < self.remote_busy_until and time.perf_counter() - t0 < timeout:
                 time.sleep(0.02)
+            return
+        if self.sink is not None:
             return
         while (self.chunks or self.playing) and time.perf_counter() - t0 < timeout:
             time.sleep(0.01)

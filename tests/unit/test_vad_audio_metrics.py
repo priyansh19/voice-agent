@@ -38,7 +38,7 @@ def test_speaker_sink_and_remote_modes():
     got = []; sp = Speaker(sink=lambda x: got.append(x)); started = []
     sp.play(np.zeros(4800, np.float32), on_start=lambda: started.append(1))
     assert len(got) == 1 and started == [1] and not sp.is_busy()
-    sent = []; sp2 = Speaker(); sp2.remote = lambda b: sent.append(b); sp2.remote_stop = lambda: sent.append("stop")
+    sent = []; sp2 = Speaker(sink=lambda x: None); sp2.remote = lambda b: sent.append(b); sp2.remote_stop = lambda: sent.append("stop")
     sp2.play(np.ones(48000, np.float32) * 0.5)
     assert len(sent[0]) == 48000 * 2 and sp2.is_busy()
     sp2.stop(); assert sent[-1] == "stop" and not sp2.is_busy(tail_ms=0)
