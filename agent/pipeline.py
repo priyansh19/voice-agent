@@ -233,9 +233,14 @@ class VoiceAgent:
                 mic = Microphone(self.cfg.audio.sample_rate, self.cfg.audio.frame_samples, self.cfg.audio.input_device)
                 mic.start()
             except Exception as e:
-                self.log(f"[audio] cannot open input device {self.cfg.audio.input_device!r}: {e}; using default")
+                self.log(f"[audio] cannot open input device {self.cfg.audio.input_device!r}: {e}; trying default")
                 self.cfg["audio"]["input_device"] = None
-                mic = Microphone(self.cfg.audio.sample_rate, self.cfg.audio.frame_samples, None); mic.start()
+                try:
+                    mic = Microphone(self.cfg.audio.sample_rate, self.cfg.audio.frame_samples, None); mic.start()
+                except Exception as e2:
+                    self.log(f"[audio] no local microphone ({e2.__class__.__name__}); browser microphone mode only")
+                    self.mic = None
+                    return
             self.mic = mic
             try:
                 self.feed(mic.frames())     # returns when set_input_device() posts a None frame

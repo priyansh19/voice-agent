@@ -59,10 +59,13 @@ def start_agent():
         agent.on_event = broadcast
         agent.warmup()
         broadcast("ready", {"muted": True, "settings": current_settings()})
-        agent.run_mic()
     except Exception as e:
         log(f"[ui] agent failed: {e!r}")
-        broadcast("state", "error")
+        broadcast("state", "error"); return
+    try:
+        agent.run_mic()                       # returns immediately on machines without a microphone (headless server)
+    except Exception as e:
+        log(f"[ui] local microphone unavailable ({e.__class__.__name__}); browser microphone mode only")
 
 
 def current_settings():

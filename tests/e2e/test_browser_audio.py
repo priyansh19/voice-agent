@@ -5,11 +5,12 @@ os.chdir(ROOT)
 import asyncio, json, time, numpy as np, soundfile as sf, websockets
 sys.path.insert(0, ROOT)
 from agent.audio_io import resample
+HOST = os.environ.get("VOICE_AGENT_HOST", "127.0.0.1:8765")   # e.g. 100.121.50.59:8765 for the Mac mini over Tailscale
 async def main(path):
     a, sr = sf.read(path, dtype="float32"); a = resample(a, sr, 16000)
     a = np.concatenate([a, np.zeros(16000, np.float32)]); pcm = (a * 32767).astype(np.int16)
     got = bytearray(); events = []
-    async with websockets.connect("ws://127.0.0.1:8765/ws") as ctl, websockets.connect("ws://127.0.0.1:8765/audio", max_size=None) as aud:
+    async with websockets.connect(f"ws://{HOST}/ws") as ctl, websockets.connect(f"ws://{HOST}/audio", max_size=None) as aud:
         await ctl.send(json.dumps({"cmd": "mute", "value": False}))
         async def reader():
             async for m in aud:
