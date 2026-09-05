@@ -1,5 +1,5 @@
 #!/bin/bash
-# Mac mini bootstrap: one-time, unattended after this. Afterwards Claude administers the machine over Tailscale SSH
+# Mac mini bootstrap: one-time, generic remote-administration setup (not tied to any project). Unattended afterwards:
 # from the laptop with passwordless sudo; you never need to log in to the mini again.
 #
 #   TS_AUTHKEY=tskey-auth-xxxxx bash macmini_bootstrap.sh
@@ -53,8 +53,8 @@ sudo systemsetup -setremotelogin on >/dev/null 2>&1 || true
 ok "no sleep · wake on LAN · auto-restart · Remote Login on"
 
 say "4/6 Passwordless sudo for $USER (remote administration must never block on a password)"
-echo "$USER ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/90-voice-agent-admin >/dev/null
-sudo chmod 440 /etc/sudoers.d/90-voice-agent-admin
+echo "$USER ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/90-remote-admin >/dev/null
+sudo chmod 440 /etc/sudoers.d/90-remote-admin
 ok "configured"
 
 say "5/6 SSH access for the laptop (public key only) + Tailscale"
@@ -67,10 +67,10 @@ sleep 3
 TS=/Applications/Tailscale.app/Contents/MacOS/Tailscale
 [[ -x "$TS" ]] || TS=$(command -v tailscale)
 if [[ -n "${TS_AUTHKEY:-}" ]]; then
-  "$TS" up --authkey="$TS_AUTHKEY" --ssh --hostname=macmini-voice >/dev/null 2>&1 && ok "joined tailnet unattended (hostname macmini-voice)"
+  "$TS" up --authkey="$TS_AUTHKEY" --ssh >/dev/null 2>&1 && ok "joined tailnet unattended"
 else
   echo "   No TS_AUTHKEY given: sign in to Tailscale in the window that opened (once)."
-  "$TS" up --ssh --hostname=macmini-voice 2>/dev/null || true
+  "$TS" up --ssh 2>/dev/null || true
 fi
 
 say "6/6 Ollama"
