@@ -93,7 +93,7 @@ class VoiceAgent:
         import sounddevice as sd, soundfile as sf
         was = self.muted; self.muted = True
         chunks, t0, last = [], time.perf_counter(), [0.0]
-        def cb(indata, frames, ti, status):
+        def cb(indata, frames, _time_info, status):
             x = indata[:, 0].copy(); chunks.append(x)
             el = time.perf_counter() - t0
             if el - last[0] >= 0.1:

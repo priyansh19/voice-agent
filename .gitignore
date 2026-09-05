@@ -21,3 +21,6 @@ samples/hindi_16k.wav
 samples/hinglish_16k.wav
 *.log
 .claude/launch.json.bak
+
+# editor / assistant tooling
+.claude/
