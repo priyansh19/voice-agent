@@ -1,0 +1,28 @@
+# Let's Encrypt issuers for cert-manager (install cert-manager first, see deploy/k8s/README.md).
+# HTTP-01 through the k3s Traefik ingress: the public name must resolve to this machine on ports 80/443
+# (e.g. a DuckDNS subdomain + router port-forward). Use the staging issuer first to avoid rate limits.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    email: pgupta@zaradigitalsolutions.it
+    privateKeySecretRef: {name: letsencrypt-staging-account}
+    solvers:
+      - http01:
+          ingress: {class: traefik}
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: pgupta@zaradigitalsolutions.it
+    privateKeySecretRef: {name: letsencrypt-prod-account}
+    solvers:
+      - http01:
+          ingress: {class: traefik}

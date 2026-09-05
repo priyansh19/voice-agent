@@ -1,0 +1,79 @@
+# Portfolio website (placeholder until the real site is built) + routing to the native voice agent on the host.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: web
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: site-html
+  namespace: web
+data:
+  index.html: |
+    <!doctype html><html lang="en"><head><meta charset="utf-8"><title>Priyansh Gupta</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <style>body{margin:0;background:#0f1115;color:#e6e8ee;font:16px/1.6 system-ui,Segoe UI,sans-serif;display:grid;place-items:center;min-height:100vh}
+    main{max-width:640px;padding:32px}h1{font-size:34px;margin:0 0 8px}p{color:#aeb4c2}a{color:#4f8cff}
+    .btn{display:inline-block;margin-top:18px;padding:12px 18px;border-radius:10px;background:#4f8cff;color:#fff;text-decoration:none;font-weight:600}</style></head>
+    <body><main><h1>Priyansh Gupta</h1><p>AI engineer. This site runs on a Mac mini in my home: Kubernetes (k3s), cert-manager, and a
+    fully local voice agent that answers in a clone of my voice on open-weight models.</p>
+    <a class="btn" href="/agent/">Talk to the voice agent →</a>
+    <p style="margin-top:28px;font-size:13px">Portfolio pages coming soon · <a href="https://github.com/priyansh19/voice-agent">source on GitHub</a></p></main></body></html>
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: site
+  namespace: web
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: site}}
+  template:
+    metadata: {labels: {app: site}}
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27-alpine
+          ports: [{containerPort: 80}]
+          volumeMounts: [{name: html, mountPath: /usr/share/nginx/html}]
+          resources: {requests: {cpu: 20m, memory: 32Mi}, limits: {memory: 64Mi}}
+      volumes:
+        - name: html
+          configMap: {name: site-html}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: site
+  namespace: web
+spec:
+  selector: {app: site}
+  ports: [{port: 80, targetPort: 80}]
+---
+# The voice agent runs natively on macOS (Metal); the cluster reaches it on the host's Tailscale IP.
+apiVersion: v1
+kind: Service
+metadata:
+  name: voice-agent
+  namespace: web
+spec:
+  ports: [{port: 8765, targetPort: 8765}]
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: voice-agent
+  namespace: web
+subsets:
+  - addresses: [{ip: 100.121.50.59}]
+    ports: [{port: 8765}]
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: strip-agent
+  namespace: web
+spec:
+  stripPrefix:
+    prefixes: ["/agent"]

@@ -1,0 +1,24 @@
+# Public HTTPS on a free DuckDNS name with a Let's Encrypt certificate from cert-manager.
+# Requirements: (1) DuckDNS subdomain pointing at your public IP, (2) router forwards 80 and 443 to the Mac mini.
+# Replace HOSTNAME, then: kubectl apply -f 40-ingress-tls-duckdns.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web-tls
+  namespace: web
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+spec:
+  tls:
+    - hosts: [HOSTNAME.duckdns.org]
+      secretName: web-tls
+  rules:
+    - host: HOSTNAME.duckdns.org
+      http:
+        paths:
+          - {path: /ws, pathType: Exact, backend: {service: {name: voice-agent, port: {number: 8765}}}}
+          - {path: /audio, pathType: Exact, backend: {service: {name: voice-agent, port: {number: 8765}}}}
+          - {path: /record, pathType: Exact, backend: {service: {name: voice-agent, port: {number: 8765}}}}
+          - {path: /voice.wav, pathType: Exact, backend: {service: {name: voice-agent, port: {number: 8765}}}}
+          - {path: /, pathType: Prefix, backend: {service: {name: site, port: {number: 80}}}}
