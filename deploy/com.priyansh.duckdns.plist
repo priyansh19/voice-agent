@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!-- Keeps the DuckDNS subdomain pointed at this home's public IP (free dynamic DNS). Every 5 minutes.
+     Secrets live in ~/.duckdns/config (chmod 600):   DOMAIN=yourname   TOKEN=xxxxxxxx-... -->
+<dict>
+  <key>Label</key><string>com.priyansh.duckdns</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/sh</string><string>-c</string>
+    <string>. "$HOME/.duckdns/config" &amp;&amp; /usr/bin/curl -s "https://www.duckdns.org/update?domains=$DOMAIN&amp;token=$TOKEN&amp;ip=" &amp;&amp; echo " $(date)"</string>
+  </array>
+  <key>StartInterval</key><integer>300</integer>
+  <key>RunAtLoad</key><true/>
+  <key>StandardOutPath</key><string>/Users/priyansh19/.duckdns/update.log</string>
+  <key>StandardErrorPath</key><string>/Users/priyansh19/.duckdns/update.log</string>
+</dict>
+</plist>
