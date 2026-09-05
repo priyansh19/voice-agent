@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!-- TCP passthrough from the Mac's ports 80/443 to the k3s Traefik ingress inside the Colima VM.
+     Layer-4 only: TLS is terminated in the cluster (cert-manager / Let's Encrypt). -->
+<dict>
+  <key>Label</key><string>com.priyansh.k8s-portforward</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/sh</string><string>-c</string>
+    <string>/opt/homebrew/bin/socat TCP-LISTEN:80,fork,reuseaddr,bind=0.0.0.0 TCP:192.168.64.2:80 &amp; exec /opt/homebrew/bin/socat TCP-LISTEN:443,fork,reuseaddr,bind=0.0.0.0 TCP:192.168.64.2:443</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>5</integer>
+  <key>StandardOutPath</key><string>/Users/priyansh19/voice-agent/out/portforward.log</string>
+  <key>StandardErrorPath</key><string>/Users/priyansh19/voice-agent/out/portforward.log</string>
+</dict>
+</plist>
