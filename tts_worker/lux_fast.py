@@ -33,6 +33,8 @@ class LuxFast:
         self.compute = compute
         if compute == "mps":                       # Apple Silicon: LuxTTS's own torch path on Metal
             self.tts = LuxTTS("YatharthS/LuxTTS", device="mps")
+            self.dev = torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
+            self.tts.model.to(self.dev).eval(); self.tts.vocos.to(self.dev).eval()   # upstream leaves parts on CPU
             self.ort = None; self.D = 0
         else:
             self.tts = LuxTTS("YatharthS/LuxTTS", device="cpu", threads=threads)
@@ -157,7 +159,8 @@ class LuxFast:
         """Return float32 48 kHz audio for `text` in the cloned voice."""
         t0 = time.perf_counter()
         if self.compute == "mps":
-            wav = self.tts.generate_speech(text, self.enc, num_steps=steps, speed=speed, guidance_scale=guidance, t_shift=t_shift)
+            enc = {k: (v.to(self.dev) if torch.is_tensor(v) else v) for k, v in self.enc.items()}   # all on one device
+            wav = self.tts.generate_speech(text, enc, num_steps=steps, speed=speed, guidance_scale=guidance, t_shift=t_shift)
             wav = wav.squeeze().float().cpu().numpy().astype(np.float32)
             if timings is not None:
                 timings.update(total_ms=(time.perf_counter() - t0) * 1000, static=False, bucket=0, frames=int(len(wav) / HOP48))
