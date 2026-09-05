@@ -1,5 +1,5 @@
-# Routing. Hosts: the Tailscale Funnel name (TLS terminated by Tailscale) and, once available, the DuckDNS name
-# (TLS by cert-manager / Let's Encrypt, see 30-cert-manager.yaml). Replace HOSTS as needed.
+# Routing.  Traefik ranks plain Ingress rules by rule-string length, so PathPrefix("/") would beat Path("/ws");
+# the agent paths therefore live in IngressRoutes with explicit priorities, and the Ingress only carries "/".
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -11,51 +11,11 @@ spec:
   rules:
     - http:
         paths:
-          # console + its WebSockets, served by the native agent on the host
-          - path: /agent
-            pathType: Prefix
-            backend: {service: {name: voice-agent-stripped, port: {number: 8765}}}
-          - path: /ws
-            pathType: Exact
-            backend: {service: {name: voice-agent, port: {number: 8765}}}
-          - path: /audio
-            pathType: Exact
-            backend: {service: {name: voice-agent, port: {number: 8765}}}
-          - path: /record
-            pathType: Exact
-            backend: {service: {name: voice-agent, port: {number: 8765}}}
-          - path: /voice.wav
-            pathType: Exact
-            backend: {service: {name: voice-agent, port: {number: 8765}}}
-          # everything else: the website
           - path: /
             pathType: Prefix
             backend: {service: {name: site, port: {number: 80}}}
 ---
-# Traefik applies the strip-prefix middleware per route; k8s Ingress can't attach a middleware to one path,
-# so /agent uses a second Service object carrying the middleware annotation.
-apiVersion: v1
-kind: Service
-metadata:
-  name: voice-agent-stripped
-  namespace: web
-  annotations:
-    traefik.ingress.kubernetes.io/service.serversscheme: http
-spec:
-  ports: [{name: http, port: 8765, targetPort: 8765}]
----
-apiVersion: discovery.k8s.io/v1
-kind: EndpointSlice
-metadata:
-  name: voice-agent-stripped-1
-  namespace: web
-  labels: {kubernetes.io/service-name: voice-agent-stripped}
-addressType: IPv4
-ports: [{name: http, port: 8765, protocol: TCP}]
-endpoints:
-  - addresses: ["192.168.64.1"]     # the macOS host as seen from the Colima VM (vmnet gateway)
-    conditions: {ready: true}
----
+# Console UI at /agent/ (prefix stripped so the agent serves its index) — the native agent on the host.
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
@@ -68,4 +28,18 @@ spec:
       kind: Rule
       priority: 50
       middlewares: [{name: strip-agent}]
+      services: [{name: voice-agent, port: 8765}]
+---
+# WebSockets and assets used by the console (paths as the agent serves them).
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: agent-paths
+  namespace: web
+spec:
+  entryPoints: [web, websecure]
+  routes:
+    - match: PathPrefix(`/ws`) || PathPrefix(`/audio`) || PathPrefix(`/record`) || PathPrefix(`/voice.wav`)
+      kind: Rule
+      priority: 60
       services: [{name: voice-agent, port: 8765}]

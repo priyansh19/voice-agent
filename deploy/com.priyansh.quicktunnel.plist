@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!-- Cloudflare quick tunnel: free public HTTPS for the site without an account or router changes.
+     The hostname is random and changes on every restart; read the current one with:
+       grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' ~/voice-agent/out/quicktunnel.log | tail -1
+     Replace with DuckDNS + router port-forward (stable name) or Tailscale Funnel when available. -->
+<dict>
+  <key>Label</key><string>com.priyansh.quicktunnel</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/cloudflared</string><string>tunnel</string><string>--url</string><string>http://127.0.0.1:80</string><string>--no-autoupdate</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>10</integer>
+  <key>StandardOutPath</key><string>/Users/priyansh19/voice-agent/out/quicktunnel.log</string>
+  <key>StandardErrorPath</key><string>/Users/priyansh19/voice-agent/out/quicktunnel.log</string>
+</dict>
+</plist>
