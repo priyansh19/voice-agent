@@ -39,7 +39,19 @@ def main():
     ap.add_argument("--prepare", action="store_true", help="compile all buckets then exit")
     args = ap.parse_args()
     with open(args.config, "r", encoding="utf-8") as f:
-        cfg = yaml.safe_load(f)["tts"]
+        full = yaml.safe_load(f)
+    override = os.environ.get("VOICE_AGENT_CONFIG")          # same override file as the main process (e.g. config.macmini.yaml)
+    if override:
+        opath = override if os.path.isabs(override) else os.path.join(ROOT, override)
+        if os.path.exists(opath):
+            def merge(b, o):
+                for k, v in (o or {}).items():
+                    b[k] = merge(b[k], v) if isinstance(v, dict) and isinstance(b.get(k), dict) else v
+                return b
+            with open(opath, "r", encoding="utf-8") as f:
+                full = merge(full, yaml.safe_load(f))
+            log(f"config override: {override}")
+    cfg = full["tts"]
     ref = cfg["voice_ref"]; ref = ref if os.path.isabs(ref) else os.path.join(ROOT, ref)
     if not os.path.exists(ref):
         log(f"voice reference {ref} not found — record one with: python main.py --record-voice"); send({"error": "no voice_ref"}); return
