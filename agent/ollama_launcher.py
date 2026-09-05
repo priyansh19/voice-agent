@@ -19,6 +19,8 @@ def ensure_ollama(host: str, log=print, timeout_s: float = 30.0):
     bind = host.replace("http://", "").replace("https://", "")
     env = dict(os.environ, OLLAMA_HOST=bind, OLLAMA_NUM_PARALLEL="1", OLLAMA_KEEP_ALIVE="-1",
                OLLAMA_MAX_LOADED_MODELS="1", OLLAMA_FLASH_ATTENTION="1", OLLAMA_KV_CACHE_TYPE="q8_0")
+    if sys.platform == "darwin":               # launchd/SSH sessions don't have Homebrew or the app bundle on PATH
+        env["PATH"] = "/opt/homebrew/bin:/Applications/Ollama.app/Contents/Resources:" + env.get("PATH", "")
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     os.makedirs(os.path.join(root, "out"), exist_ok=True)
     logf = open(os.path.join(root, "out", "ollama_private.log"), "ab")

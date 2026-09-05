@@ -30,11 +30,15 @@ class LuxFast:
     def __init__(self, threads=6, compute="ort", ov_device="GPU", buckets=None, cache_dir=None,
                  precision="f32", log=print):
         self.log = log
-        self.tts = LuxTTS("YatharthS/LuxTTS", device="cpu", threads=threads)
-        torch.set_num_threads(threads)
-        self.ort = self.tts.model
-        self.D = self.ort.feat_dim
         self.compute = compute
+        if compute == "mps":                       # Apple Silicon: LuxTTS's own torch path on Metal
+            self.tts = LuxTTS("YatharthS/LuxTTS", device="mps")
+            self.ort = None; self.D = 0
+        else:
+            self.tts = LuxTTS("YatharthS/LuxTTS", device="cpu", threads=threads)
+            self.ort = self.tts.model
+            self.D = self.ort.feat_dim
+        torch.set_num_threads(threads)
         self.ov_device = ov_device
         self.buckets = sorted(buckets or [])
         self.precision = precision
@@ -54,6 +58,8 @@ class LuxFast:
     # ------------------------------------------------------------------ setup
     def prepare(self):
         """Compile every bucket now (first time ~1 min each on GPU; cached on disk afterwards)."""
+        if self.compute != "ov":
+            return
         for N in self.buckets:
             self._compiled(N)
 
@@ -86,7 +92,7 @@ class LuxFast:
     def _after_encode(self):
         self.P = int(self.enc["prompt_features"].shape[1])
         self.Tp = len(self.enc["prompt_tokens"][0])
-        self.pad_ids = self.tts.tokenizer.texts_to_token_ids([PAD_TEXT])[0]
+        self.pad_ids = self.tts.tokenizer.texts_to_token_ids([PAD_TEXT])[0] if self.compute != "mps" else []
 
     # ------------------------------------------------------------------ pieces
     def _run_fm_ort(self, t, x, tc, sc, g):
@@ -150,6 +156,12 @@ class LuxFast:
     def synth(self, text, steps=4, speed=1.0, guidance=3.0, t_shift=0.5, timings=None):
         """Return float32 48 kHz audio for `text` in the cloned voice."""
         t0 = time.perf_counter()
+        if self.compute == "mps":
+            wav = self.tts.generate_speech(text, self.enc, num_steps=steps, speed=speed, guidance_scale=guidance, t_shift=t_shift)
+            wav = wav.squeeze().float().cpu().numpy().astype(np.float32)
+            if timings is not None:
+                timings.update(total_ms=(time.perf_counter() - t0) * 1000, static=False, bucket=0, frames=int(len(wav) / HOP48))
+            return wav
         ids = self.tts.tokenizer.texts_to_token_ids([text])[0]
         if not ids:
             return np.zeros(0, dtype=np.float32)

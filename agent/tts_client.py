@@ -10,7 +10,8 @@ from .audio_io import resample
 class LuxWorkerTTS:
     def __init__(self, cfg, log=print):
         self.cfg, self.log = cfg, log
-        py = os.path.join(ROOT, "tts_worker", ".venv", "Scripts", "python.exe")
+        venv = os.path.join(ROOT, "tts_worker", ".venv")
+        py = os.path.join(venv, "Scripts", "python.exe") if sys.platform == "win32" else os.path.join(venv, "bin", "python")
         self.proc = subprocess.Popen([py, os.path.join(ROOT, "tts_worker", "server.py"), "--config", os.path.join(ROOT, "config.yaml")],
                                      stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=sys.stderr, bufsize=0,
                                      env=dict(os.environ, PYTHONUNBUFFERED="1", PYTHONIOENCODING="utf-8"))

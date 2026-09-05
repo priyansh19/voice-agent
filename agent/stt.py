@@ -1,9 +1,10 @@
-"""Granite Speech 5.0 470M TurboCTC (Apache-2.0) on OpenVINO with static-shape buckets.
+"""Granite Speech 5.0 470M TurboCTC (Apache-2.0): encoder-only CTC, one forward pass, greedy decode.
 
-On an Intel Core Ultra the NPU transcribes a 6 s bucket in ~120-150 ms and is otherwise idle,
-leaving the GPU to the LLM and TTS.  Encoder-only CTC: one forward pass, greedy decode, no autoregression.
+Backends (config `stt.backend`):
+  openvino  – static-shape buckets compiled for an Intel NPU / GPU / CPU (Core Ultra: ~130 ms on the NPU).
+  torch     – PyTorch on `stt.device` (mps on Apple Silicon in float32, as in the original Mac stack; or cpu).
 """
-import os, time
+import os, threading, time
 import numpy as np
 from .config import abspath
 
@@ -12,20 +13,48 @@ FPS = 50  # encoder input frames per second (20 ms hop)
 
 class GraniteSTT:
     def __init__(self, cfg, log=print):
-        self.cfg = cfg
-        self.log = log
+        self.cfg, self.log = cfg, log
         self.model_id = cfg.model_id
+        self.backend = cfg.get("backend", "openvino")
         self.device = cfg.device
-        self.buckets = sorted(cfg.buckets_frames)
-        self.ov_dir = abspath(cfg.ov_dir)
-        os.makedirs(self.ov_dir, exist_ok=True)
+        self.lock = threading.Lock()
         from transformers import AutoProcessor
         self.proc = AutoProcessor.from_pretrained(self.model_id)
+        if self.backend == "torch":
+            self._init_torch()
+        else:
+            self._init_openvino()
+
+    # ------------------------------------------------------------------ torch (Apple Silicon / CPU)
+    def _init_torch(self):
+        import torch
+        from transformers import AutoModelForCTC
+        dev = str(self.device).lower()
+        if dev == "mps" and not torch.backends.mps.is_available():
+            self.log("[stt] MPS not available, using CPU"); dev = "cpu"
+        self.torch_device = dev
+        t = time.perf_counter()
+        self.model = AutoModelForCTC.from_pretrained(self.model_id, dtype=torch.float32).eval().to(dev)
+        if dev == "cpu":
+            torch.set_num_threads(int(self.cfg.get("threads", 4)))
+        self.log(f"[stt] Granite TurboCTC on torch/{dev} in {time.perf_counter()-t:.1f}s")
+
+    def _transcribe_torch(self, audio16k):
+        import torch
+        inp = self.proc([audio16k], sampling_rate=16000)
+        with torch.inference_mode():
+            logits = self.model(input_features=inp["input_features"].to(self.torch_device),
+                                attention_mask=inp["attention_mask"].to(self.torch_device)).logits
+        return self.proc.batch_decode(logits.argmax(-1).cpu(), skip_special_tokens=True)[0].strip()
+
+    # ------------------------------------------------------------------ openvino (Intel)
+    def _init_openvino(self):
         import openvino as ov
+        self.buckets = sorted(self.cfg.buckets_frames)
+        self.ov_dir = abspath(self.cfg.ov_dir)
+        os.makedirs(self.ov_dir, exist_ok=True)
         self.core = ov.Core()
         self.core.set_property({"CACHE_DIR": os.path.join(self.ov_dir, "cache")})
-        import threading
-        self.lock = threading.Lock()     # one infer request per bucket: serialize overlapping speculative turns
         self.reqs = {}
         for N in self.buckets:
             xml = os.path.join(self.ov_dir, f"model_static{N}.xml")
@@ -53,11 +82,8 @@ class GraniteSTT:
                                       ("attention_mask", [1, ex["attention_mask"].shape[1]])])
         ov.save_model(ovm, xml)
 
-    def warmup(self):
-        self.transcribe(np.zeros(16000, dtype=np.float32))
-
-    def transcribe(self, audio16k: np.ndarray) -> str:
-        """audio16k: float32 mono at 16 kHz. Returns lower-case text without punctuation."""
+    def _transcribe_openvino(self, audio16k):
+        import torch
         n = len(audio16k)
         N = next((b for b in self.buckets if n <= b / FPS * 16000), self.buckets[-1])
         cap = int(N / FPS * 16000)
@@ -68,9 +94,17 @@ class GraniteSTT:
         mask = np.zeros(inp["attention_mask"].shape, dtype=np.int64)
         mask[:, : min(mask.shape[1], int(np.ceil(n / 16000 * FPS)) + 1)] = 1
         req = self.reqs[N]
+        req.infer({"input_features": inp["input_features"].numpy(), "attention_mask": mask})
+        logits = np.array(req.get_output_tensor(0).data)
+        return self.proc.batch_decode(torch.from_numpy(logits.argmax(-1)), skip_special_tokens=True)[0].strip()
+
+    # ------------------------------------------------------------------ public
+    def warmup(self):
+        self.transcribe(np.zeros(16000, dtype=np.float32))
+
+    def transcribe(self, audio16k: np.ndarray) -> str:
+        """audio16k: float32 mono at 16 kHz. Returns lower-case text without punctuation."""
         with self.lock:
-            req.infer({"input_features": inp["input_features"].numpy(), "attention_mask": mask})
-            logits = np.array(req.get_output_tensor(0).data)
-        ids = logits.argmax(-1)
-        import torch
-        return self.proc.batch_decode(torch.from_numpy(ids), skip_special_tokens=True)[0].strip()
+            if self.backend == "torch":
+                return self._transcribe_torch(audio16k)
+            return self._transcribe_openvino(audio16k)

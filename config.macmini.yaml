@@ -1,0 +1,21 @@
+# Overrides for Apple Silicon (Mac mini M4). Use with:  VOICE_AGENT_CONFIG=config.macmini.yaml
+# Everything not listed here comes from config.yaml.
+stt:
+  backend: torch            # Granite TurboCTC in float32 on Metal (MPS), no OpenVINO on macOS
+  device: mps
+  multilingual:
+    enabled: true
+    backend: mlx            # mlx-whisper on Metal
+    model: mlx-community/whisper-large-v3-turbo
+
+llm:
+  host: http://127.0.0.1:11436
+  private_instance: true    # ollama serve with OLLAMA_NUM_PARALLEL=1 (Metal backend)
+
+tts:
+  compute: mps              # LuxTTS flow decoder on Metal via PyTorch (no static buckets needed)
+  threads: 6
+
+audio:
+  input_device: null        # the mini has no microphone: use the browser-mic mode of the console
+  output_device: null

@@ -36,6 +36,9 @@ url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 
 [dependency-groups]
+apple = [
+    "mlx-whisper>=0.4 ; sys_platform == 'darwin' and platform_machine == 'arm64'",
+]
 dev = [
     "httpx>=0.28.1",
     "pytest>=8",
