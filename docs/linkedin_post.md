@@ -31,7 +31,7 @@ The same code runs on a Mac mini M4 on Metal, served behind a k3s cluster with L
 
 Repo (Apache-2.0, architecture diagram, per-stage benchmarks, CI that runs without a GPU): https://github.com/priyansh19/voice-agent
 
-I'm building in public from here on: local AI, voice, edge inference, real numbers attached. I'm also open to senior roles in on-device ML, voice, or real-time systems, so if your team works on any of those, let's talk.
+I'm building in public from here on: local AI, voice, edge inference, real numbers attached. Also, I'm on the lookout for my next gig, anything in Gen AI, AI infrastructure or the messy space in between. If you're hiring for that kind of thing, or just want to nerd out about latency, my inbox is open.
 
 Question for you: what's the longest pause you'd accept from a voice assistant before it feels broken? I've been assuming 1 second. Tell me if I'm wrong.
 
