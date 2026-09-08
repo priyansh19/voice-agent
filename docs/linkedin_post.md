@@ -35,7 +35,7 @@ I'm building in public from here on: local AI, voice, edge inference, real numbe
 
 Question for you: what's the longest pause you'd accept from a voice assistant before it feels broken? I've been assuming 1 second. Tell me if I'm wrong.
 
-#VoiceAI #EdgeAI #OpenSource #BuildInPublic
+#VoiceAI #EdgeAI #OpenSource #BuildInPublic #GenerativeAI #AIInfrastructure #MachineLearning #LLM #MLOps #AIEngineer #ArtificialIntelligence #SoftwareEngineering #OpenToWork #Hiring #TechRecruiting #TalentAcquisition
 
 ---
 
@@ -47,4 +47,5 @@ Hardware for the numbers above: Intel Core Ultra 7 155H, 32 GB, no discrete GPU.
 
 - Cover image first (LinkedIn uses the first image as the thumbnail), then the tall latency crop, then the scenarios screenshot, then the single-turn one.
 - Tuesday to Thursday, 8 to 10 am in your audience's timezone; reply to every comment in the first hour.
+- The hashtag block mixes topic tags (reach) with #OpenToWork #Hiring #TechRecruiting #TalentAcquisition (recruiter feeds). If you'd rather keep the caption clean, move the recruiter tags into the first comment; they still index.
 - Put the repo link in the post and again in the first comment; LinkedIn down-ranks link-only posts less when the link is repeated in a comment.
