@@ -1,35 +1,67 @@
-# LinkedIn post (copy below the line; attach docs/architecture_3x.png)
+# LinkedIn post
+
+Attach, in this order: `docs/architecture_3x.png`, `docs/screenshots/console_english.png`, `docs/screenshots/console_hindi.png`
+(LinkedIn shows the first image as the cover, so the diagram goes first). The screenshots are real turns
+captured on 2026-09-08 on the Core Ultra 7 155H laptop, console at http://127.0.0.1:8765.
 
 ---
 
-I built a voice assistant that answers in a clone of my own voice, runs 100% on my laptop, and starts responding in under 200 milliseconds. No cloud. No API keys. Only open-weight models.
+I built a voice assistant that talks back in a clone of MY voice. It runs entirely on my laptop. And no, my laptop does not have an NVIDIA GPU.
 
-Here is what "local" means here: an Intel Core Ultra laptop with no NVIDIA GPU. The trick was not one big model, it was splitting the work across the three compute units the chip already has:
+It starts responding in about 170 ms. Faster than my colleagues on a Monday.
 
-🔹 NPU → speech-to-text (Granite Speech 5.0 TurboCTC, one pass, ~130 ms)
-🔹 Arc iGPU → the LLM (Granite 4.2 3B via Ollama) and the voice-cloning TTS decoder (LuxTTS on OpenVINO)
-🔹 CPU → voice activity detection, the vocoder, and a "voice lock" that only answers my voice
+Backstory: every "AI voice agent" demo I saw had three things in common. A cloud API key. A monthly bill. And a pause after every question long enough to make eye contact with the audience.
 
-What makes it feel instant:
-• Transcription and the LLM start during my pause, ~250 ms before the turn is even over. If I keep talking, the work is cancelled and merged into the next turn.
-• A spoken acknowledgement in my cloned voice ("Hmm.", "Right.") plays at ~170 ms while the real answer is generated. First words of the answer arrive about a second after I stop.
-• Text streams into speech clause by clause; the first chunk is only three words long.
-• Weather questions are prefetched from the transcript before the model even runs.
+So I set myself a stubborn rule: open-weight models only, zero cloud, zero API keys, and it has to answer before the silence gets awkward.
 
-It understands English, Hindi and Hinglish (Whisper large-v3-turbo kicks in only when the fast English model looks unsure), answers in the language you spoke, and reaches the internet through keyless tools: live weather, Wikipedia, web search.
+What I got on an Intel Core Ultra laptop (no discrete GPU, just the NPU, the tiny Arc iGPU and the CPU, all three working overtime):
 
-Some of the bugs that cost the most time were not model problems at all: "localhost" on Windows added 1.7 s per request (IPv6 first, then fallback). Ollama's four parallel slots re-evaluated the whole prompt on every turn. A voice-cloning model produced zero frames for short sentences because of a duration formula. Measuring every stage per turn is what found all of them.
+🎙️ Hears my voice, ignores everyone else's. A "voice lock" (WeSpeaker CAM++) compares every utterance to my recording. My roommate is officially not authorised to ask it for the weather.
 
-The whole thing is open source under Apache-2.0, with a test suite that runs without a GPU (the models are replaced by fakes with known latencies, and a test asserts the orchestration adds under 250 ms), CI on Linux and Windows, and a self-hosted benchmark workflow so people can share numbers from their own hardware.
+🧠 Transcribes on the NPU (Granite Speech 5.0 TurboCTC) in ~100 ms. Yes, the NPU that ships in these laptops for "background blur" is doing real work.
 
-Repo: https://github.com/priyansh19/voice-agent
+💬 Thinks with Granite 4.2 3B on the iGPU, streams the answer clause by clause, and starts talking after the first three words.
 
-Architecture diagram below. Happy to compare notes with anyone working on low-latency speech pipelines, especially on Apple Silicon or NVIDIA where the same design should land well under 500 ms.
+🗣️ Speaks in my cloned voice (LuxTTS, OpenVINO). My mother has already been fooled once. Sorry, Mummy.
 
-#VoiceAI #OpenSource #EdgeAI #LLM #SpeechRecognition #TTS #OpenVINO #Ollama #IntelCoreUltra #LocalAI
+🌍 Understands English, Hindi and Hinglish, and replies in whatever you spoke. Whisper large-v3-turbo wakes up only when the fast English model looks confused.
+
+⚡ The latency trick: it starts transcribing and thinking during my PAUSE, about 250 ms before I actually stop. If I keep talking, it throws the guess away and merges. And while the real answer is being generated, it says "Hmm." in my own voice at ~170 ms. Humans do this. Now my laptop does too.
+
+🌐 Live weather, Wikipedia and web search through keyless tools. Weather is prefetched from the transcript before the LLM even runs.
+
+The bugs that hurt the most were not AI problems at all:
+• "localhost" on Windows cost 1.7 seconds per request. IPv6 tries first, then gives up. Use 127.0.0.1. I lost a weekend to nine characters.
+• Ollama's four parallel slots re-read the whole prompt every turn. One private instance, one slot, problem gone.
+• The voice model produced exactly zero audio for short sentences because of a duration formula. Silence is a very hard bug to hear.
+
+Real numbers from the console today (screenshots below), English question, nothing warmed up by hand:
+• transcript ready 82 ms BEFORE I finished the sentence
+• "Hmm." in my voice at 169 ms
+• first LLM token at 328 ms
+• first words of the actual answer at 909 ms
+
+Hindi is honest too: about 5 s, because Whisper large-v3-turbo does the heavy lifting there. Next milestone is fixing exactly that. The same code on a Mac mini M4 runs on Metal and lands in the same range.
+
+Everything is open source under Apache-2.0: architecture diagram, benchmarks for each stage, a test suite that runs without a GPU (the models are swapped for fakes with known latencies, and a test fails if the orchestration itself adds more than 250 ms), CI on Linux and Windows.
+
+👉 https://github.com/priyansh19/voice-agent
+
+This is post 1 of a series. I'm building things in public now: local AI, voice, edge inference, and the occasional self-inflicted bug. Follow along if you like your engineering with real numbers attached.
+
+And if your team is building anything in speech, on-device inference or real-time systems, my DMs are open. I'd love to hear what you're working on.
+
+#VoiceAI #OpenSource #EdgeAI #LocalAI #LLM #SpeechRecognition #TextToSpeech #OpenVINO #Ollama #IntelCoreUltra #BuildInPublic #MachineLearning
 
 ---
 
-Shorter variant (if you prefer a punchier post):
+## Short variant (comment or repost text)
 
-Built a fully local voice agent that talks back in my own cloned voice and starts responding in under 200 ms, on a laptop with no NVIDIA GPU. Open weights only: Granite Speech on the NPU, Granite 4.2 + LuxTTS on the Intel Arc iGPU, Whisper for Hindi/Hinglish, a voice lock so it only answers me, live weather/Wikipedia/search tools. Speculative execution during your pause, cloned-voice fillers, clause-level streaming. Apache-2.0, tested in CI without a GPU. https://github.com/priyansh19/voice-agent #VoiceAI #OpenSource #EdgeAI
+My laptop now answers me in my own voice in under 200 ms, with no GPU, no cloud and no API key. Open weights only: Granite Speech on the NPU, Granite 4.2 + LuxTTS on the Intel iGPU, Whisper for Hindi/Hinglish, a voice lock so it ignores everyone but me. The secret is starting to think during your pause and saying "Hmm." while it works. Apache-2.0, tested in CI without a GPU. https://github.com/priyansh19/voice-agent #VoiceAI #OpenSource #EdgeAI
+
+## Posting tips
+
+- Post the long version as the caption; add the diagram first, then the two or three console screenshots.
+- First comment: the repo link again plus one line on hardware ("runs on a Core Ultra 7 155H, 32 GB, no dGPU").
+- Best times: Tuesday to Thursday, 8 to 10 am in your audience's timezone.
+- Reply to every comment in the first hour; LinkedIn rewards early conversation.

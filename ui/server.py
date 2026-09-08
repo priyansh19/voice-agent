@@ -120,7 +120,7 @@ async def ws_endpoint(ws: WebSocket):
                 if t: agent._cancel(t)
                 agent.speaker.stop(); agent.set_state("idle")
             elif cmd == "clear":
-                agent.history.clear(); log("[ui] history cleared")
+                agent.history.clear(); history_events.clear(); log("[ui] history cleared")   # also the replay buffer new clients receive
             elif cmd in ("record_voice", "record_start"):
                 threading.Thread(target=agent.record_voice, args=(float(req.get("seconds", 20)),), daemon=True).start()
             elif cmd == "record_use":
